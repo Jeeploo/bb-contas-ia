@@ -17,3 +17,31 @@ class InsufficientApprovalLimitError(ValueError):
 
 class ApprovalOrderChangeNotAllowedError(ValueError):
     """Uma aprovação registrada não pode ser transferida para outra ordem."""
+
+
+class DocumentError(ValueError):
+    """Falha de domínio no fluxo de documentos."""
+
+
+class DocumentFileNotFoundError(DocumentError):
+    """Arquivo do documento ausente no armazenamento."""
+
+
+class InvalidPdfError(DocumentError):
+    """PDF malformado ou protegido e não legível."""
+
+
+class PdfWithoutTextError(DocumentError):
+    """PDF necessita OCR ou tratamento manual."""
+
+
+class UnsupportedDocumentFormatError(DocumentError):
+    """Formato ou caminho fora do armazenamento suportado."""
+
+
+class DocumentTooLargeError(DocumentError):
+    """Arquivo excede o limite configurado."""
+
+
+class EmptyDocumentError(DocumentError):
+    """Upload sem conteúdo."""

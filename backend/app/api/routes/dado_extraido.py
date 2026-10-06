@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
 from app.api.dependencies import get_db
+from app.schemas.dado_extraido import DadoExtraidoValidacao
 from app.schemas.dado_extraido import DadoExtraidoCreate, DadoExtraidoRead, DadoExtraidoUpdate
 from app.services.dado_extraido import DadoExtraidoService
 
@@ -43,3 +44,8 @@ def update(id: int, data: DadoExtraidoUpdate, session: DatabaseSession):
 def delete(id: int, session: DatabaseSession):
     DadoExtraidoService(session).delete(id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/{id}/validacao", response_model=DadoExtraidoRead)
+def validar(id: int, data: DadoExtraidoValidacao, session: DatabaseSession):
+    return DadoExtraidoService(session).validar(id, data)

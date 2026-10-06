@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
 from app.api.dependencies import get_db
+from app.schemas.processamento_documento import ProcessamentoDocumentoRead
+from app.services.processamento_documento import ProcessamentoDocumentoService
 from app.schemas.documento import DocumentoCreate, DocumentoRead, DocumentoUpdate
 from app.services.documento import DocumentoService
 
@@ -43,3 +45,8 @@ def update(id: int, data: DocumentoUpdate, session: DatabaseSession):
 def delete(id: int, session: DatabaseSession):
     DocumentoService(session).delete(id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{id_documento}/processar", response_model=ProcessamentoDocumentoRead)
+def processar(id_documento: int, session: DatabaseSession):
+    return ProcessamentoDocumentoService(session).processar(id_documento)

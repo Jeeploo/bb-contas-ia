@@ -2,6 +2,8 @@ from fastapi import HTTPException, status
 from fastapi.routing import APIRoute
 
 from app.services.exceptions import (
+    DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
+    UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError,
     EntityNotFoundError, SelfApprovalNotAllowedError,
     InsufficientApprovalLimitError, ApprovalOrderChangeNotAllowedError,
 )
@@ -16,6 +18,12 @@ class EntityNotFoundRoute(APIRoute):
         async def handle(request):
             try:
                 return await handler(request)
+            except (DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
+                    UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError) as exc:
+                codes = {DocumentFileNotFoundError: 404, InvalidPdfError: 400,
+                         PdfWithoutTextError: 422, UnsupportedDocumentFormatError: 415,
+                         DocumentTooLargeError: 413, EmptyDocumentError: 400}
+                raise HTTPException(status_code=codes[type(exc)], detail=str(exc)) from exc
             except EntityNotFoundError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)

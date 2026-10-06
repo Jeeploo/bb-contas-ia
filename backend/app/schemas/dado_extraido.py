@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DadoExtraidoBase(BaseModel):
@@ -31,3 +31,17 @@ class DadoExtraidoRead(DadoExtraidoBase):
     model_config = ConfigDict(from_attributes=True)
 
     id_dado_extraido: int
+
+
+class DadoExtraidoValidacao(BaseModel):
+    """Omitir valor_validado confirma o original; null não é uma correção."""
+    model_config = ConfigDict(extra="forbid")
+
+    valor_validado: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null(cls, data):
+        if isinstance(data, dict) and "valor_validado" in data and data["valor_validado"] is None:
+            raise ValueError("Informe um valor válido ou omita o campo para confirmar o original")
+        return data
