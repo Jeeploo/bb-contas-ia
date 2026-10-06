@@ -1,3 +1,21 @@
+from app.schemas.regra_calculo import (
+    RegraCalculoBase,
+    RegraCalculoCreate,
+    RegraCalculoRead,
+    RegraCalculoUpdate,
+)
+from app.schemas.item_regra import (
+    ItemRegraBase,
+    ItemRegraCreate,
+    ItemRegraRead,
+    ItemRegraUpdate,
+)
+from app.schemas.calculo import (
+    CalculoBase,
+    CalculoCreate,
+    CalculoRead,
+    CalculoUpdate,
+)
 from app.schemas.concessionaria import (
     ConcessionariaBase,
     ConcessionariaCreate,
@@ -42,6 +60,18 @@ from app.schemas.prefixo import (
 )
 
 __all__ = [
+    "RegraCalculoBase",
+    "RegraCalculoCreate",
+    "RegraCalculoRead",
+    "RegraCalculoUpdate",
+    "ItemRegraBase",
+    "ItemRegraCreate",
+    "ItemRegraRead",
+    "ItemRegraUpdate",
+    "CalculoBase",
+    "CalculoCreate",
+    "CalculoRead",
+    "CalculoUpdate",
     "ConcessionariaBase",
     "ConcessionariaCreate",
     "ConcessionariaRead",
