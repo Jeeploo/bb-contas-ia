@@ -17,6 +17,10 @@ ENTITIES = (
     ("localidades", "id_localidade", LOCALIDADE, {"municipio": "Olinda"}),
     ("prefixos", "id_prefixo", dict(codigo_prefixo="TEST", nome="Teste", tipo_prefixo="agencia", situacao="ativo", id_localidade=1), {"nome": "Outro"}),
     ("concessionarias", "id_concessionaria", dict(cnpj="00000000000000", razao_social="Teste", nome_fantasia="Teste", tipo_servico="energia"), {"razao_social": "Outra"}),
+    ("contas_consumo", "id_conta", dict(numero_conta="123", competencia="2026-10", data_emissao=None, data_vencimento="2026-10-20", valor_original="123.45", codigo_barras=None, consumo="10.500", unidade_consumo="kWh", categoria="energia", situacao="pendente", id_prefixo=1, id_concessionaria=1), {"situacao": "validada"}),
+    ("documentos", "id_documento", dict(tipo_documento="fatura", formato="pdf", data_recebimento="2026-10-06T10:00:00", origem="manual", caminho_arquivo="contas/fatura.pdf", id_conta=1), {"caminho_arquivo": "contas/revisada.pdf"}),
+    ("extracoes_inteligentes", "id_extracao", dict(data_processamento="2026-10-06T11:00:00", nivel_confianca="95.50", situacao_validacao="pendente", id_documento=1), {"situacao_validacao": "validada"}),
+    ("dados_extraidos", "id_dado_extraido", dict(campo_identificado="valor_original", valor_extraido="123.45", nivel_confianca="98.50", situacao_validacao="pendente", valor_validado=None, id_extracao=1), {"valor_validado": "123.45", "situacao_validacao": "validada"}),
 )
 
 
@@ -105,6 +109,50 @@ class ApiTests(unittest.TestCase):
         response = self.client.patch("/api/v1/localidades/1", json={"regiao": None})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {**LOCALIDADE, "id_localidade": 1, "regiao": None})
+
+    def create_entity_chain(self):
+        for resource, _, payload, _ in ENTITIES:
+            response = self.client.post("/api/v1/" + resource, json=payload)
+            self.assertEqual(response.status_code, 201, response.text)
+
+    def test_missing_foreign_keys_for_new_entities(self):
+        self.create_entity_chain()
+        references = (
+            (3, "id_prefixo", "Prefixo"),
+            (3, "id_concessionaria", "Concessionaria"),
+            (4, "id_conta", "ContaConsumo"),
+            (5, "id_documento", "Documento"),
+            (6, "id_extracao", "ExtracaoInteligente"),
+        )
+        for index, field, entity in references:
+            resource, _, payload, _ = ENTITIES[index]
+            url = "/api/v1/" + resource
+            before = self.client.get(url).json()
+            for method, target, data in (
+                ("post", url, {**payload, field: 999}),
+                ("patch", url + "/1", {field: 999}),
+            ):
+                with self.subTest(resource=resource, field=field, method=method):
+                    response = getattr(self.client, method)(target, json=data)
+                    self.assertEqual(response.status_code, 404, response.text)
+                    self.assertIn(entity, response.json()["detail"])
+                    self.assertIn("999", response.json()["detail"])
+                    self.assertEqual(self.client.get(url).json(), before)
+
+    def test_explicit_null_for_new_entities(self):
+        self.create_entity_chain()
+        for resource, field in (
+            ("contas_consumo", "numero_conta"),
+            ("extracoes_inteligentes", "nivel_confianca"),
+            ("dados_extraidos", "valor_extraido"),
+        ):
+            with self.subTest(resource=resource):
+                url = f"/api/v1/{resource}/1"
+                before = self.client.get(url).json()
+                response = self.client.patch(url, json={field: None})
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json(), {**before, field: None})
+                self.assertEqual(self.client.get(url).json(), response.json())
 
     def test_schema_and_pagination_validation(self):
         for resource, _, payload, _ in ENTITIES:
