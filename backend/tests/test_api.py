@@ -21,6 +21,9 @@ ENTITIES = (
     ("documentos", "id_documento", dict(tipo_documento="fatura", formato="pdf", data_recebimento="2026-10-06T10:00:00", origem="manual", caminho_arquivo="contas/fatura.pdf", id_conta=1), {"caminho_arquivo": "contas/revisada.pdf"}),
     ("extracoes_inteligentes", "id_extracao", dict(data_processamento="2026-10-06T11:00:00", nivel_confianca="95.50", situacao_validacao="pendente", id_documento=1), {"situacao_validacao": "validada"}),
     ("dados_extraidos", "id_dado_extraido", dict(campo_identificado="valor_original", valor_extraido="123.45", nivel_confianca="98.50", situacao_validacao="pendente", valor_validado=None, id_extracao=1), {"valor_validado": "123.45", "situacao_validacao": "validada"}),
+    ("regras_calculo", "id_regra", dict(nome_regra="Regra teste", categoria="energia", versao="1", data_inicio_vigencia="2026-10-01", data_fim_vigencia=None, situacao="ativa"), {"nome_regra": "Regra revisada"}),
+    ("itens_regra", "id_item_regra", dict(nome_item="Desconto", tipo_item="percentual", valor_percentual="5.000000", ordem_aplicacao=1, descricao=None, id_regra=1), {"ordem_aplicacao": 2}),
+    ("calculos", "id_calculo", dict(data_calculo="2026-10-06T12:00:00", valor_inicial="123.45", valor_calculado="117.28", situacao="pendente", id_conta=1, id_regra=1), {"situacao": "validado"}),
 )
 
 
@@ -167,6 +170,31 @@ class ApiTests(ApiTestCase):
                 self.assertEqual(self.client.patch(url + "/1", json={"unknown": True}).status_code, 422)
                 self.assertEqual(self.client.get(url, params={"offset": -1}).status_code, 422)
                 self.assertEqual(self.client.get(url, params={"limit": 0}).status_code, 422)
+
+    def assert_missing_calculation_fk(self, index, field, entity):
+        self.create_entity_chain()
+        resource, _, payload, _ = ENTITIES[index]
+        url = "/api/v1/" + resource
+        before = self.client.get(url).json()
+        for method, target, data in (
+            ("post", url, {**payload, field: 999}),
+            ("patch", url + "/1", {field: 999}),
+        ):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(target, json=data)
+                self.assertEqual(response.status_code, 404, response.text)
+                self.assertIn(entity, response.json()["detail"])
+                self.assertIn("999", response.json()["detail"])
+                self.assertEqual(self.client.get(url).json(), before)
+
+    def test_missing_regra_on_item_create_and_update(self):
+        self.assert_missing_calculation_fk(8, "id_regra", "RegraCalculo")
+
+    def test_missing_regra_on_calculo_create_and_update(self):
+        self.assert_missing_calculation_fk(9, "id_regra", "RegraCalculo")
+
+    def test_missing_conta_on_calculo_create_and_update(self):
+        self.assert_missing_calculation_fk(9, "id_conta", "ContaConsumo")
 
     def test_existing_root_and_health(self):
         response = self.client.get("/")

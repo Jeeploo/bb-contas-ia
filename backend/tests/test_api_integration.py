@@ -8,6 +8,8 @@ from tests import test_api
 
 # Cada campo aponta para o recurso pai criado anteriormente no fluxo.
 FOREIGN_KEYS = {
+    "itens_regra": {"id_regra": "regras_calculo"},
+    "calculos": {"id_conta": "contas_consumo", "id_regra": "regras_calculo"},
     "prefixos": {"id_localidade": "localidades"},
     "contas_consumo": {
         "id_prefixo": "prefixos",
