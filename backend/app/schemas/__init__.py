@@ -1,3 +1,39 @@
+from app.schemas.alcada import (
+    AlcadaBase,
+    AlcadaCreate,
+    AlcadaRead,
+    AlcadaUpdate,
+)
+from app.schemas.usuario import (
+    UsuarioBase,
+    UsuarioCreate,
+    UsuarioRead,
+    UsuarioUpdate,
+)
+from app.schemas.sistema_pagamento import (
+    SistemaPagamentoBase,
+    SistemaPagamentoCreate,
+    SistemaPagamentoRead,
+    SistemaPagamentoUpdate,
+)
+from app.schemas.ordem_pagamento import (
+    OrdemPagamentoBase,
+    OrdemPagamentoCreate,
+    OrdemPagamentoRead,
+    OrdemPagamentoUpdate,
+)
+from app.schemas.item_pagamento import (
+    ItemPagamentoBase,
+    ItemPagamentoCreate,
+    ItemPagamentoRead,
+    ItemPagamentoUpdate,
+)
+from app.schemas.aprovacao import (
+    AprovacaoBase,
+    AprovacaoCreate,
+    AprovacaoRead,
+    AprovacaoUpdate,
+)
 from app.schemas.regra_calculo import (
     RegraCalculoBase,
     RegraCalculoCreate,
@@ -100,4 +136,28 @@ __all__ = [
     "PrefixoCreate",
     "PrefixoRead",
     "PrefixoUpdate",
+    "AlcadaBase",
+    "AlcadaCreate",
+    "AlcadaUpdate",
+    "AlcadaRead",
+    "UsuarioBase",
+    "UsuarioCreate",
+    "UsuarioUpdate",
+    "UsuarioRead",
+    "SistemaPagamentoBase",
+    "SistemaPagamentoCreate",
+    "SistemaPagamentoUpdate",
+    "SistemaPagamentoRead",
+    "OrdemPagamentoBase",
+    "OrdemPagamentoCreate",
+    "OrdemPagamentoUpdate",
+    "OrdemPagamentoRead",
+    "ItemPagamentoBase",
+    "ItemPagamentoCreate",
+    "ItemPagamentoUpdate",
+    "ItemPagamentoRead",
+    "AprovacaoBase",
+    "AprovacaoCreate",
+    "AprovacaoUpdate",
+    "AprovacaoRead",
 ]

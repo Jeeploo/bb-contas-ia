@@ -1,3 +1,9 @@
+from app.services.alcada import AlcadaService
+from app.services.usuario import UsuarioService
+from app.services.sistema_pagamento import SistemaPagamentoService
+from app.services.ordem_pagamento import OrdemPagamentoService
+from app.services.item_pagamento import ItemPagamentoService
+from app.services.aprovacao import AprovacaoService
 from app.services.localidade import LocalidadeService
 from app.services.prefixo import PrefixoService
 from app.services.concessionaria import ConcessionariaService
@@ -22,4 +28,10 @@ __all__ = [
     "RegraCalculoService",
     "ItemRegraService",
     "CalculoService",
+    "AlcadaService",
+    "UsuarioService",
+    "SistemaPagamentoService",
+    "OrdemPagamentoService",
+    "ItemPagamentoService",
+    "AprovacaoService",
 ]

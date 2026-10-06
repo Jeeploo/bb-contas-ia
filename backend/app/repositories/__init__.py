@@ -1,3 +1,9 @@
+from app.repositories.alcada import AlcadaRepository
+from app.repositories.usuario import UsuarioRepository
+from app.repositories.sistema_pagamento import SistemaPagamentoRepository
+from app.repositories.ordem_pagamento import OrdemPagamentoRepository
+from app.repositories.item_pagamento import ItemPagamentoRepository
+from app.repositories.aprovacao import AprovacaoRepository
 from app.repositories.localidade import LocalidadeRepository
 from app.repositories.prefixo import PrefixoRepository
 from app.repositories.concessionaria import ConcessionariaRepository
@@ -20,4 +26,10 @@ __all__ = [
     "RegraCalculoRepository",
     "ItemRegraRepository",
     "CalculoRepository",
+    "AlcadaRepository",
+    "UsuarioRepository",
+    "SistemaPagamentoRepository",
+    "OrdemPagamentoRepository",
+    "ItemPagamentoRepository",
+    "AprovacaoRepository",
 ]
