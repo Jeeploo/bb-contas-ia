@@ -1,0 +1,12 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { HashRouter, Routes, Route, Link } from 'react-router-dom';
+import { DesktopLayout } from './layout/DesktopLayout';
+import { Dashboard } from './pages/Dashboard';
+import { Contas } from './pages/Contas';
+import { ContaDetalhes } from './pages/ContaDetalhes';
+import { Processamento, Validacoes } from './pages/Operacao';
+import { Calculos, Ordens, OrdemDetalhes } from './pages/Pagamentos';
+import { Aprovacoes } from './pages/Aprovacoes';
+import './styles.css';
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><HashRouter><Routes><Route element={<DesktopLayout />}><Route index element={<Dashboard />}/><Route path="contas" element={<Contas />}/><Route path="contas/:id" element={<ContaDetalhes />}/><Route path="processamento" element={<Processamento />}/><Route path="validacoes" element={<Validacoes />}/><Route path="calculos" element={<Calculos />}/><Route path="ordens" element={<Ordens />}/><Route path="ordens/:id" element={<OrdemDetalhes />}/><Route path="aprovacoes" element={<Aprovacoes />}/><Route path="*" element={<div className="state">Página não encontrada. <Link to="/">Voltar ao dashboard</Link></div>}/></Route></Routes></HashRouter></React.StrictMode>);

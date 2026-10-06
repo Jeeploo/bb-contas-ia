@@ -1,0 +1,10 @@
+import { Link } from 'react-router-dom';
+import { api } from '../api';
+import { Badge, PageTitle, ResourceState, Table, money, useResource } from '../components/ui';
+const load = async () => { const [contas, extracoes, dados, ordens] = await Promise.all([api.contas(), api.extracoes(), api.dados(), api.ordens()]); return { contas, extracoes, dados, ordens }; };
+export function Dashboard() {
+    const r = useResource(load);
+    const d = r.data;
+    const cards = d ? [['Total de contas', d.contas.length], ['Documentos processados', new Set(d.extracoes.map(e => e.id_documento)).size], ['Validações pendentes', d.dados.filter(e => e.situacao_validacao !== 'validada').length], ['Ordens pendentes', d.ordens.filter(e => !['aprovada', 'rejeitada'].includes(e.situacao)).length], ['Aprovadas', d.ordens.filter(e => e.situacao === 'aprovada').length], ['Rejeitadas', d.ordens.filter(e => e.situacao === 'rejeitada').length]] : [];
+    return <><PageTitle title="Dashboard" subtitle="Visão geral do ciclo de contas de consumo" action={<button onClick={r.reload}>Atualizar</button>}/><ResourceState {...r} retry={r.reload}>{d && <><div className="metrics">{cards.map(([label, value]) => <article className="metric" key={label}><span>{label}</span><strong>{value}</strong></article>)}</div><section className="panel"><h2>Fluxo operacional</h2><div className="flow">{['Recebimento', 'Extração', 'Validação', 'Cálculo', 'Ordem', 'Aprovação'].map((label, i) => <div key={label}><span>{String(i + 1).padStart(2, '0')}</span>{label}{i < 5 && <b>→</b>}</div>)}</div></section><section className="panel"><h2>Contas recentes</h2><Table rows={d.contas.slice(-5).reverse()} rowKey={c => c.id_conta} columns={[{ title: 'Conta', render: c => <Link to={`/contas/${c.id_conta}`}>#{c.id_conta}</Link> }, { title: 'Competência', render: c => c.competencia }, { title: 'Categoria', render: c => c.categoria }, { title: 'Valor', render: c => money(c.valor_original) }, { title: 'Situação', render: c => <Badge value={c.situacao}/> }]}/></section></>}</ResourceState></>;
+}
