@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.routes import router
 from app.core.config import settings
 from app.core.database import test_database_connection
 
@@ -7,6 +8,8 @@ from app.core.database import test_database_connection
 app = FastAPI(
     title=settings.app_name,
 )
+
+app.include_router(router)
 
 
 @app.get("/")
