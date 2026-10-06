@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.calculo import Calculo
     from app.models.prefixo import Prefixo
     from app.models.concessionaria import Concessionaria
     from app.models.documento import Documento
@@ -39,3 +40,4 @@ class ContaConsumo(Base):
     prefixo: Mapped[Prefixo] = relationship(back_populates="contas")
     concessionaria: Mapped[Concessionaria] = relationship(back_populates="contas")
     documentos: Mapped[list[Documento]] = relationship(back_populates="conta")
+    calculos: Mapped[list[Calculo]] = relationship(back_populates="conta")
