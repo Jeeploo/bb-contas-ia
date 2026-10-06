@@ -31,4 +31,5 @@ class CalculoUpdate(BaseModel):
 class CalculoRead(CalculoBase):
     model_config = ConfigDict(from_attributes=True)
 
+    memoria_calculo: dict | None = None
     id_calculo: int

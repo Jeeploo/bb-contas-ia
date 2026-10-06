@@ -69,3 +69,7 @@ class EmptyOcrError(DocumentError):
 
 class OcrExecutionError(DocumentError):
     """Falha na execução local do OCR."""
+
+
+class CalculationError(ValueError):
+    """Configuração ou validação insuficiente para calcular."""

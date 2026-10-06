@@ -26,3 +26,5 @@ class ItemRegra(Base):
     )
 
     regra: Mapped[RegraCalculo] = relationship(back_populates="itens")
+
+    obrigatorio: Mapped[bool] = mapped_column(default=True, server_default="true")

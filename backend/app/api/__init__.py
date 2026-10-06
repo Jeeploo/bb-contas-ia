@@ -6,6 +6,7 @@ from app.services.exceptions import (
     PdfRenderingError, EmptyOcrError, OcrExecutionError,
     DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
     UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError,
+    CalculationError,
     EntityNotFoundError, SelfApprovalNotAllowedError,
     InsufficientApprovalLimitError, ApprovalOrderChangeNotAllowedError,
 )
@@ -29,6 +30,8 @@ class EntityNotFoundRoute(APIRoute):
                          PdfWithoutTextError: 422, UnsupportedDocumentFormatError: 415,
                          DocumentTooLargeError: 413, EmptyDocumentError: 400}
                 raise HTTPException(status_code=codes[type(exc)], detail=str(exc)) from exc
+            except CalculationError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
             except EntityNotFoundError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)

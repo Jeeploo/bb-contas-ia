@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    perfil_processamento,
+    item_extraido,
     alcada,
     usuario,
     sistema_pagamento,
@@ -37,3 +39,6 @@ router.include_router(sistema_pagamento.router)
 router.include_router(ordem_pagamento.router)
 router.include_router(item_pagamento.router)
 router.include_router(aprovacao.router)
+
+router.include_router(perfil_processamento.router)
+router.include_router(item_extraido.router)

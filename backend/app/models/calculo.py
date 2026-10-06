@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Numeric, String
+from sqlalchemy import ForeignKey, Numeric, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -33,3 +33,5 @@ class Calculo(Base):
     conta: Mapped[ContaConsumo] = relationship(back_populates="calculos")
     regra: Mapped[RegraCalculo] = relationship(back_populates="calculos")
     ordens: Mapped[list[OrdemPagamento]] = relationship(back_populates="calculo")
+
+    memoria_calculo: Mapped[dict | None] = mapped_column(JSON, nullable=True)

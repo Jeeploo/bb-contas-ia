@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
 from app.api.dependencies import get_db
+from app.schemas.calculo import CalculoRead
+from app.services.calculo_contextual import CalculoContextualService
 from app.schemas.documento import DocumentoRead
 from app.services.processamento_documento import ProcessamentoDocumentoService
 from app.schemas.conta_consumo import ContaConsumoCreate, ContaConsumoRead, ContaConsumoUpdate
@@ -52,3 +54,9 @@ def delete(id: int, session: DatabaseSession):
 def upload_documento(id_conta: int, session: DatabaseSession, file: UploadFile):
     return ProcessamentoDocumentoService(session).upload(
         id_conta, file.file, file.filename or "", file.content_type or "")
+
+
+
+@router.post("/{id_conta}/calcular", response_model=CalculoRead, status_code=201)
+def calcular(id_conta: int, session: DatabaseSession):
+    return CalculoContextualService(session).calcular(id_conta)

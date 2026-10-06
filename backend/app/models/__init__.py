@@ -16,7 +16,12 @@ from app.models.regra_calculo import RegraCalculo
 from app.models.sistema_pagamento import SistemaPagamento
 from app.models.usuario import Usuario
 
+from app.models.perfil_processamento import PerfilProcessamento
+from app.models.item_extraido import ItemExtraido
+
 __all__ = [
+    "PerfilProcessamento",
+    "ItemExtraido",
     "Alcada",
     "Aprovacao",
     "Base",

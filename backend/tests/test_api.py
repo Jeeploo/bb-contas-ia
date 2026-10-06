@@ -79,6 +79,10 @@ class ApiTests(ApiTestCase):
                 created = self.client.post(url, json=payload)
                 self.assertEqual(created.status_code, 201, created.text)
                 expected = {**payload, id_field: created.json()[id_field]}
+                if resource == "itens_regra":
+                    expected["obrigatorio"] = True
+                if resource == "calculos":
+                    expected["memoria_calculo"] = None
                 self.assertEqual(created.json(), expected)
                 detail_url = f"{url}/{expected[id_field]}"
                 listed = self.client.get(url)

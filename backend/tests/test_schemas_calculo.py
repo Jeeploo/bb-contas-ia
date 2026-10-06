@@ -109,7 +109,10 @@ class CalculoSchemaTests(unittest.TestCase):
                 instance = getattr(models, name)(**validated, **{primary_key: 42})
                 read = getattr(schemas, name + "Read")
                 self.assertTrue(read.model_config["from_attributes"])
-                self.assertEqual(read.model_validate(instance).model_dump(), {**validated, primary_key: 42})
+                expected = {**validated, primary_key: 42}
+                if name == "Calculo":
+                    expected["memoria_calculo"] = None
+                self.assertEqual(read.model_validate(instance).model_dump(), expected)
                 with self.assertRaises(ValidationError):
                     read(**validated)
 

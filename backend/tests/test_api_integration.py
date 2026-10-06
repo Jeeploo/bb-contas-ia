@@ -68,6 +68,10 @@ class ApiIntegrationTests(test_api.ApiTestCase):
             self.assertGreater(entity_id, 0)
             ids[resource] = entity_id
             expected_by_resource[resource] = {**payload, id_field: entity_id}
+            if resource == "itens_regra":
+                expected_by_resource[resource]["obrigatorio"] = True
+            if resource == "calculos":
+                expected_by_resource[resource]["memoria_calculo"] = None
             self.assertEqual(created.json(), expected_by_resource[resource])
             self.assert_resources(expected_by_resource, ids)
 

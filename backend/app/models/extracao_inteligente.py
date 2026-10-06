@@ -12,6 +12,7 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from app.models.documento import Documento
     from app.models.dado_extraido import DadoExtraido
+    from app.models.item_extraido import ItemExtraido
 
 
 class ExtracaoInteligente(Base):
@@ -27,3 +28,5 @@ class ExtracaoInteligente(Base):
 
     documento: Mapped[Documento] = relationship(back_populates="extracoes")
     dados_extraidos: Mapped[list[DadoExtraido]] = relationship(back_populates="extracao")
+
+    itens_extraidos: Mapped[list[ItemExtraido]] = relationship("ItemExtraido", back_populates="extracao")

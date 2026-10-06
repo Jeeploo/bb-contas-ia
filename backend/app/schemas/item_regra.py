@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ItemRegraBase(BaseModel):
+    obrigatorio: bool = True
     nome_item: str
     tipo_item: str
     valor_percentual: Decimal | None = None
@@ -19,6 +20,7 @@ class ItemRegraCreate(ItemRegraBase):
 class ItemRegraUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    obrigatorio: bool | None = None
     nome_item: str | None = None
     tipo_item: str | None = None
     valor_percentual: Decimal | None = None
