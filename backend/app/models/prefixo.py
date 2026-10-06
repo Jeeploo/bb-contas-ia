@@ -10,6 +10,7 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from app.models.conta_consumo import ContaConsumo
     from app.models.localidade import Localidade
+    from app.models.usuario import Usuario
 
 
 class Prefixo(Base):
@@ -26,3 +27,4 @@ class Prefixo(Base):
 
     localidade: Mapped[Localidade] = relationship(back_populates="prefixos")
     contas: Mapped[list[ContaConsumo]] = relationship(back_populates="prefixo")
+    usuarios: Mapped[list[Usuario]] = relationship(back_populates="prefixo")

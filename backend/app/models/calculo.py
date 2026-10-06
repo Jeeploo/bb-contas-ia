@@ -11,6 +11,7 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.conta_consumo import ContaConsumo
+    from app.models.ordem_pagamento import OrdemPagamento
     from app.models.regra_calculo import RegraCalculo
 
 
@@ -31,3 +32,4 @@ class Calculo(Base):
 
     conta: Mapped[ContaConsumo] = relationship(back_populates="calculos")
     regra: Mapped[RegraCalculo] = relationship(back_populates="calculos")
+    ordens: Mapped[list[OrdemPagamento]] = relationship(back_populates="calculo")
