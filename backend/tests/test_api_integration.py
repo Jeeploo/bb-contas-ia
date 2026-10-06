@@ -8,6 +8,14 @@ from tests import test_api
 
 # Cada campo aponta para o recurso pai criado anteriormente no fluxo.
 FOREIGN_KEYS = {
+    "usuarios": {"id_alcada": "alcadas", "id_prefixo": "prefixos"},
+    "ordens_pagamento": {
+        "id_calculo": "calculos",
+        "id_sistema": "sistemas_pagamento",
+        "id_usuario_criador": "usuarios",
+    },
+    "itens_pagamento": {"id_ordem": "ordens_pagamento"},
+    "aprovacoes": {"id_ordem": "ordens_pagamento", "id_usuario": "usuarios"},
     "itens_regra": {"id_regra": "regras_calculo"},
     "calculos": {"id_conta": "contas_consumo", "id_regra": "regras_calculo"},
     "prefixos": {"id_localidade": "localidades"},

@@ -1,6 +1,12 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    alcada,
+    usuario,
+    sistema_pagamento,
+    ordem_pagamento,
+    item_pagamento,
+    aprovacao,
     calculo,
     concessionaria,
     conta_consumo,
@@ -25,3 +31,9 @@ router.include_router(dado_extraido.router)
 router.include_router(regra_calculo.router)
 router.include_router(item_regra.router)
 router.include_router(calculo.router)
+router.include_router(alcada.router)
+router.include_router(usuario.router)
+router.include_router(sistema_pagamento.router)
+router.include_router(ordem_pagamento.router)
+router.include_router(item_pagamento.router)
+router.include_router(aprovacao.router)

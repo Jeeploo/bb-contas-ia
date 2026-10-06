@@ -24,6 +24,12 @@ ENTITIES = (
     ("regras_calculo", "id_regra", dict(nome_regra="Regra teste", categoria="energia", versao="1", data_inicio_vigencia="2026-10-01", data_fim_vigencia=None, situacao="ativa"), {"nome_regra": "Regra revisada"}),
     ("itens_regra", "id_item_regra", dict(nome_item="Desconto", tipo_item="percentual", valor_percentual="5.000000", ordem_aplicacao=1, descricao=None, id_regra=1), {"ordem_aplicacao": 2}),
     ("calculos", "id_calculo", dict(data_calculo="2026-10-06T12:00:00", valor_inicial="123.45", valor_calculado="117.28", situacao="pendente", id_conta=1, id_regra=1), {"situacao": "validado"}),
+    ("sistemas_pagamento", "id_sistema", dict(nome="Sistema teste", descricao=None, situacao="ativo"), {"nome": "Sistema revisado"}),
+    ("alcadas", "id_alcada", dict(nome_nivel="Gerente", limite_financeiro="1000.00", data_inicio_vigencia="2026-10-01", data_fim_vigencia=None), {"nome_nivel": "Gerente revisado"}),
+    ("usuarios", "id_usuario", dict(matricula="TEST001", nome="Usuario teste", funcao="gerente", situacao="ativo", id_alcada=1, id_prefixo=1), {"nome": "Usuario revisado"}),
+    ("ordens_pagamento", "id_ordem", dict(data_criacao="2026-10-06T13:00:00", data_prevista_pagamento="2026-10-20", valor_total="117.28", situacao="pendente", id_calculo=1, id_sistema=1, id_usuario_criador=1), {"data_prevista_pagamento": "2026-10-21"}),
+    ("itens_pagamento", "id_item_pagamento", dict(codigo_evento="001", descricao_evento=None, codigo_subitem=None, descricao_subitem=None, valor="117.28", id_ordem=1), {"descricao_evento": "Pagamento de energia"}),
+    ("aprovacoes", "id_aprovacao", dict(data_hora="2026-10-06T14:00:00", decisao="aprovada", observacao=None, id_ordem=1, id_usuario=1), {"observacao": "Registro revisado"}),
 )
 
 
@@ -195,6 +201,63 @@ class ApiTests(ApiTestCase):
 
     def test_missing_conta_on_calculo_create_and_update(self):
         self.assert_missing_calculation_fk(9, "id_conta", "ContaConsumo")
+
+    def test_payment_foreign_keys_on_create_and_update(self):
+        self.create_entity_chain()
+        references = (
+            ("usuarios", "id_alcada", "Alcada"),
+            ("usuarios", "id_prefixo", "Prefixo"),
+            ("ordens_pagamento", "id_calculo", "Calculo"),
+            ("ordens_pagamento", "id_sistema", "SistemaPagamento"),
+            ("ordens_pagamento", "id_usuario_criador", "Usuario"),
+            ("itens_pagamento", "id_ordem", "OrdemPagamento"),
+            ("aprovacoes", "id_ordem", "OrdemPagamento"),
+            ("aprovacoes", "id_usuario", "Usuario"),
+        )
+        payloads = {resource: payload for resource, _, payload, _ in ENTITIES}
+        for resource, field, entity in references:
+            url = f"/api/v1/{resource}"
+            before = self.client.get(url).json()
+            for method, target, data in (
+                ("post", url, {**payloads[resource], field: 999}),
+                ("patch", url + "/1", {field: 999}),
+            ):
+                with self.subTest(resource=resource, field=field, method=method):
+                    response = getattr(self.client, method)(target, json=data)
+                    self.assertEqual(response.status_code, 404, response.text)
+                    self.assertIn(entity, response.json()["detail"])
+                    self.assertIn("999", response.json()["detail"])
+                    self.assertEqual(self.client.get(url).json(), before)
+
+    def test_payment_pagination(self):
+        self.create_entity_chain()
+        for resource, id_field, payload, _ in ENTITIES[10:]:
+            with self.subTest(resource=resource):
+                url = f"/api/v1/{resource}"
+                second_payload = payload.copy()
+                if resource == "sistemas_pagamento":
+                    second_payload["nome"] = "Segundo sistema"
+                if resource == "usuarios":
+                    second_payload["matricula"] = "TEST002"
+                created = self.client.post(url, json=second_payload)
+                self.assertEqual(created.status_code, 201, created.text)
+                first_page = self.client.get(url, params={"offset": 0, "limit": 1})
+                second_page = self.client.get(url, params={"offset": 1, "limit": 1})
+                self.assertEqual(first_page.status_code, 200)
+                self.assertEqual(second_page.status_code, 200)
+                self.assertEqual(len(first_page.json()), 1)
+                self.assertEqual(first_page.json()[0][id_field], 1)
+                self.assertEqual(second_page.json(), [created.json()])
+
+    def test_usuario_optional_foreign_keys_can_be_cleared(self):
+        self.create_entity_chain()
+        url = "/api/v1/usuarios/1"
+        before = self.client.get(url).json()
+        changes = {"id_alcada": None, "id_prefixo": None}
+        response = self.client.patch(url, json=changes)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {**before, **changes})
+        self.assertEqual(self.client.get(url).json(), response.json())
 
     def test_existing_root_and_health(self):
         response = self.client.get("/")
