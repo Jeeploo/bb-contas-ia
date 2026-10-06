@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.conta_consumo import ContaConsumo
     from app.models.localidade import Localidade
 
 
@@ -24,3 +25,4 @@ class Prefixo(Base):
     )
 
     localidade: Mapped[Localidade] = relationship(back_populates="prefixos")
+    contas: Mapped[list[ContaConsumo]] = relationship(back_populates="prefixo")
