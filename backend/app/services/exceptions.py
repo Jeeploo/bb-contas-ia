@@ -45,3 +45,27 @@ class DocumentTooLargeError(DocumentError):
 
 class EmptyDocumentError(DocumentError):
     """Upload sem conteúdo."""
+
+
+class TesseractUnavailableError(DocumentError):
+    """Executável Tesseract indisponível."""
+
+
+class OcrLanguageUnavailableError(DocumentError):
+    """Nenhum idioma OCR suportado instalado."""
+
+
+class OcrPageLimitExceededError(DocumentError):
+    """PDF excede o limite de páginas de OCR."""
+
+
+class PdfRenderingError(DocumentError):
+    """Falha ao renderizar páginas para OCR."""
+
+
+class EmptyOcrError(DocumentError):
+    """OCR não produziu texto utilizável."""
+
+
+class OcrExecutionError(DocumentError):
+    """Falha na execução local do OCR."""

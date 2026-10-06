@@ -24,3 +24,7 @@ typing_extensions==4.16.0
 uvicorn==0.54.0
 pypdf==6.19.0
 python-multipart==0.0.32
+PyMuPDF==1.28.2
+pytesseract==0.3.13
+Pillow==12.3.0
+packaging==26.3

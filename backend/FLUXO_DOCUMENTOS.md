@@ -45,14 +45,30 @@ continuam disponíveis e compatíveis; use o endpoint específico para validar.
 
 `ProcessamentoDocumentoService` recebe `DocumentStorage`, `DocumentTextExtractor`
 e `FieldExtractor` por injeção no construtor. As implementações padrão são
-`LocalDocumentStorage`, `PdfTextExtractor` e `DeterministicFieldExtractor`.
+`LocalDocumentStorage`, `HybridPdfTextExtractor` e `DeterministicFieldExtractor`.
 Outra implementação pode substituir esses componentes na composição do service,
 sem mudanças em rotas, tabelas ou na orquestração de persistência.
 
-`pypdf` lê todas as páginas de PDF textual, retornando texto, quantidade de páginas
-e sucesso. Falhas são indicadas por exceções de domínio. Não há OCR nem chamadas
-externas. PDF sem texto exige OCR/manual; PDFs protegidos são tratados como ilegíveis.
-Documentos com texto parcial não têm cobertura de OCR para páginas de imagem.
+`HybridPdfTextExtractor` chama `PdfTextExtractor` (pypdf) primeiro. Havendo texto,
+retorna estratégia `text` sem consultar ou executar Tesseract. Apenas ausência de
+camada textual aciona `TesseractPdfOcrExtractor`, que renderiza com PyMuPDF a
+300 DPI em RGB e executa Tesseract página a página, retornando estratégia `ocr`.
+O resultado interno contém texto, páginas, sucesso, estratégia e confiança base;
+a API mantém seu contrato e nunca expõe o texto completo. A estratégia não é
+persistida, pois não houve alteração de models ou banco.
+
+`MAX_OCR_PAGES` limita o PDF inteiro submetido ao OCR (padrão 10). O limite é
+verificado antes de executar Tesseract; PDFs textuais não estão sujeitos a ele.
+Valores menores que 1 são rejeitados. `por` é o idioma principal; se não estiver
+instalado, usa `eng`. Se ambos estiverem ausentes, ocorre erro de domínio.
+Tesseract deve estar instalado no sistema com os dados de idioma locais.
+Há timeout de 60 segundos por página e processamento sequencial em memória.
+Não há chamadas externas nem downloads durante processamento.
+
+PDF inválido ou protegido falha na leitura nativa e não aciona OCR. PDF misto com
+algum texto nativo usa somente esse texto: não há fallback por página neste MVP.
+OCR sem caracteres alfanuméricos exige tratamento manual. Texto reconhecido segue
+para o mesmo `FieldExtractor`; ruído de OCR pode impedir identificação conservadora.
 
 ## Regras conservadoras
 
@@ -72,8 +88,10 @@ ou cálculo de dígitos verificadores de boleto. Identificação de código não
 Valores conflitantes ou ocorrências malformadas de um mesmo campo excluem esse campo.
 Repetições do mesmo valor normalizado produzem um único resultado.
 
-A confiança é **95/100**, regra fixa de identificação explícita, não probabilidade
-estimada por IA. A confiança geral é a média dos campos efetivamente extraídos.
+As confianças base são **95/100 para texto nativo** e **80/100 para OCR**.
+São heurísticas fixas do MVP, não probabilidades calibradas nem escores do Tesseract.
+O service limita a confiança individual à base da estratégia, preservando escores
+inferiores de extratores injetados. A confiança geral é a média dos campos efetivamente extraídos.
 Sem campos: confiança geral null, lista vazia e `requer_validacao` para tratamento
 manual. Toda extração criada fica `requer_validacao`; dados começam `pendente`.
 
@@ -106,7 +124,13 @@ As datas seguem os models existentes, com UTC sem informação de fuso persistid
 | EmptyDocumentError | 400 |
 | UnsupportedDocumentFormatError | 415 |
 | DocumentTooLargeError | 413 |
-| PdfWithoutTextError | 422 |
+| PdfWithoutTextError (extrator nativo isolado) | 422 |
+| TesseractUnavailableError | 503 |
+| OcrLanguageUnavailableError | 503 |
+| OcrPageLimitExceededError | 413 |
+| PdfRenderingError | 422 |
+| EmptyOcrError | 422 |
+| OcrExecutionError (inclui timeout) | 422 |
 
 ## Verificação local
 
@@ -118,3 +142,9 @@ rollback de persistência parcial e reutilização da sessão.
 
 Dependências adicionadas: `pypdf==6.19.0` e `python-multipart==0.0.32`.
 Após instalar dependências, upload/processamento/testes não precisam de internet.
+
+OCR: `PyMuPDF==1.28.2`, `pytesseract==0.3.13`, `Pillow==12.3.0` e
+`packaging==26.3` (as duas últimas dependências do pytesseract). Ambiente validado
+com Tesseract 5.3.4 e idiomas `por`, `eng`, `osd`; OCR usa `por` ou fallback `eng`.
+Os testes incluem OCR real de PDF rasterizado com rede bloqueada, erros de domínio,
+limite, persistência, confiança e rollback SQL com reutilização da sessão.

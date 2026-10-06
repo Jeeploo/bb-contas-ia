@@ -2,6 +2,8 @@ from fastapi import HTTPException, status
 from fastapi.routing import APIRoute
 
 from app.services.exceptions import (
+    TesseractUnavailableError, OcrLanguageUnavailableError, OcrPageLimitExceededError,
+    PdfRenderingError, EmptyOcrError, OcrExecutionError,
     DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
     UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError,
     EntityNotFoundError, SelfApprovalNotAllowedError,
@@ -18,9 +20,12 @@ class EntityNotFoundRoute(APIRoute):
         async def handle(request):
             try:
                 return await handler(request)
-            except (DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
+            except (TesseractUnavailableError, OcrLanguageUnavailableError, OcrPageLimitExceededError,
+                    PdfRenderingError, EmptyOcrError, OcrExecutionError, DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
                     UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError) as exc:
-                codes = {DocumentFileNotFoundError: 404, InvalidPdfError: 400,
+                codes = {TesseractUnavailableError: 503, OcrLanguageUnavailableError: 503,
+                         OcrPageLimitExceededError: 413, PdfRenderingError: 422,
+                         EmptyOcrError: 422, OcrExecutionError: 422, DocumentFileNotFoundError: 404, InvalidPdfError: 400,
                          PdfWithoutTextError: 422, UnsupportedDocumentFormatError: 415,
                          DocumentTooLargeError: 413, EmptyDocumentError: 400}
                 raise HTTPException(status_code=codes[type(exc)], detail=str(exc)) from exc

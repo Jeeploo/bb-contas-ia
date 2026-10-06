@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import BinaryIO
@@ -9,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.processing.storage import DocumentStorage, LocalDocumentStorage
-from app.processing.text import DocumentTextExtractor, PdfTextExtractor
+from app.processing.text import DocumentTextExtractor
+from app.processing.ocr import HybridPdfTextExtractor
 from app.processing.fields import FieldExtractor, DeterministicFieldExtractor
 from app.repositories.conta_consumo import ContaConsumoRepository
 from app.repositories.documento import DocumentoRepository
@@ -30,7 +32,7 @@ class ProcessamentoDocumentoService:
         self.session = session
         self.storage = storage or LocalDocumentStorage(
             settings.document_storage_path, settings.document_max_size_bytes)
-        self.text_extractor = text_extractor or PdfTextExtractor()
+        self.text_extractor = text_extractor or HybridPdfTextExtractor(max_pages=settings.max_ocr_pages)
         self.field_extractor = field_extractor or DeterministicFieldExtractor()
         self.documents = DocumentoRepository(session)
         self.extractions = ExtracaoInteligenteRepository(session)
@@ -78,7 +80,8 @@ class ProcessamentoDocumentoService:
             result = self.text_extractor.extract(self.storage.read(document.caminho_arquivo))
             if not result.sucesso:
                 raise InvalidPdfError("Extrator não concluiu a leitura do documento")
-            fields = self.field_extractor.extract(result.texto)
+            fields = [replace(field, nivel_confianca=min(field.nivel_confianca, Decimal(result.confianca_base)))
+                      for field in self.field_extractor.extract(result.texto)]
             for field in fields:
                 if not Decimal(0) <= field.nivel_confianca <= Decimal(100):
                     raise ValueError("Confiança deve estar entre 0 e 100")

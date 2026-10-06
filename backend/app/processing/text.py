@@ -12,6 +12,8 @@ class TextExtractionResult:
     texto: str
     quantidade_paginas: int
     sucesso: bool
+    estrategia: str = "text"
+    confianca_base: int = 95
 
 
 class DocumentTextExtractor(Protocol):
