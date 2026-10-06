@@ -24,7 +24,9 @@ ENTITIES = (
 )
 
 
-class ApiTests(unittest.TestCase):
+class ApiTestCase(unittest.TestCase):
+    """Infraestrutura compartilhada: banco novo e overrides isolados por teste."""
+
     def setUp(self):
         self.engine = create_engine(
             "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -52,6 +54,8 @@ class ApiTests(unittest.TestCase):
         app.dependency_overrides.clear()
         app.dependency_overrides.update(overrides)
 
+
+class ApiTests(ApiTestCase):
     def test_crud_for_each_entity(self):
         for resource, id_field, payload, changes in ENTITIES:
             with self.subTest(resource=resource):
