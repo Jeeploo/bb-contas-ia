@@ -18,6 +18,9 @@ ENTITIES = (
     ("Documento", dict(tipo_documento="conta", formato="pdf", data_recebimento=datetime(2026, 1, 1), origem="upload", caminho_arquivo="/teste.pdf", id_conta=1)),
     ("ExtracaoInteligente", dict(data_processamento=datetime(2026, 1, 1), situacao_validacao="pendente", id_documento=1)),
     ("DadoExtraido", dict(campo_identificado="valor", situacao_validacao="pendente", id_extracao=1)),
+    ("RegraCalculo", dict(nome_regra="Teste", categoria="energia", versao="1", data_inicio_vigencia=date(2026, 1, 1), situacao="ativa")),
+    ("ItemRegra", dict(nome_item="Desconto", tipo_item="percentual", valor_percentual="5.000000", ordem_aplicacao=1, id_regra=1)),
+    ("Calculo", dict(data_calculo=datetime(2026, 1, 1), valor_inicial="100.00", valor_calculado="95.00", situacao="concluido", id_conta=1, id_regra=1)),
 )
 
 
@@ -135,6 +138,27 @@ class ServiceTests(unittest.TestCase):
             service.delete(1)
         self.assertIsNotNone(service.get_by_id(1))
         self.assertEqual(services.PrefixoService(self.session).get_by_id(1).id_localidade, 1)
+
+    def test_calculation_services_integrity_rollback_and_recovery(self):
+        self.seed()
+        for name, payload in ENTITIES[-3:]:
+            service = getattr(services, name + "Service")(self.session)
+            field = next(iter(payload))
+            with self.subTest(entity=name), patch.object(self.session, "rollback", wraps=self.session.rollback) as rollback, self.assertRaises(IntegrityError):
+                service.update(1, getattr(schemas, name + "Update")(**{field: None}))
+            rollback.assert_called_once_with()
+            self.assertEqual(getattr(service.get_by_id(1), field), payload[field])
+            service.update(1, getattr(schemas, name + "Update")(situacao="recuperado") if name != "ItemRegra" else schemas.ItemRegraUpdate(descricao="recuperado"))
+
+    def test_regra_delete_with_dependents_rolls_back(self):
+        self.seed()
+        service = services.RegraCalculoService(self.session)
+        with patch.object(self.session, "rollback", wraps=self.session.rollback) as rollback, self.assertRaises(IntegrityError):
+            service.delete(1)
+        rollback.assert_called_once_with()
+        self.assertIsNotNone(service.get_by_id(1))
+        self.assertEqual(services.ItemRegraService(self.session).get_by_id(1).id_regra, 1)
+        self.assertEqual(services.CalculoService(self.session).get_by_id(1).id_regra, 1)
 
     def test_commit_failure_rolls_back_every_write(self):
         self.seed()
