@@ -21,7 +21,7 @@ ENTITIES = (
     ("sistema_pagamento", "SistemaPagamento", "id_sistema", dict(nome="Sistema", situacao="livre")),
     ("ordem_pagamento", "OrdemPagamento", "id_ordem", dict(data_criacao=datetime(2026, 10, 6, 10), data_prevista_pagamento=date(2026, 10, 20), valor_total="150.23", situacao="livre", id_calculo=1, id_sistema=1, id_usuario_criador=1)),
     ("item_pagamento", "ItemPagamento", "id_item_pagamento", dict(codigo_evento="evento-livre", valor="150.23", id_ordem=1)),
-    ("aprovacao", "Aprovacao", "id_aprovacao", dict(data_hora=datetime(2026, 10, 6, 11), decisao="decisao-livre", id_ordem=1, id_usuario=1)),
+    ("aprovacao", "Aprovacao", "id_aprovacao", dict(data_hora=datetime(2026, 10, 6, 11), decisao="decisao-livre", id_ordem=1, id_usuario=2)),
 )
 
 
@@ -110,13 +110,19 @@ class PagamentoDatabaseTests(unittest.TestCase):
         for name, payload in EXISTING_ENTITIES:
             getattr(services, name + "Service")(self.session).create(create_schema(name, payload))
 
+    def ensure_checker(self, name):
+        if name == "Aprovacao" and self.session.get(models.Usuario, 2) is None:
+            services.UsuarioService(self.session).create(create_schema("Usuario", {**ENTITIES[1][3], "matricula": "CHECKER"}))
+
     def seed(self):
         for _, name, _, payload in ENTITIES:
+            self.ensure_checker(name)
             getattr(services, name + "Service")(self.session).create(create_schema(name, payload))
 
     def test_services_crud_commits_and_partial_update(self):
         for _, name, pk, payload in ENTITIES:
             with self.subTest(entity=name):
+                self.ensure_checker(name)
                 service = getattr(services, name + "Service")(self.session)
                 with patch.object(self.session, "commit", wraps=self.session.commit) as commit:
                     row = service.create(create_schema(name, payload))
@@ -139,6 +145,8 @@ class PagamentoDatabaseTests(unittest.TestCase):
                     self.assertEqual(getattr(service.get_by_id(entity_id), field), value)
         for _, name, _, _ in reversed(ENTITIES):
             service = getattr(services, name + "Service")(self.session)
+            if name == "Usuario":
+                service.delete(2)
             with patch.object(self.session, "commit", wraps=self.session.commit) as commit:
                 self.assertTrue(service.delete(1))
                 commit.assert_called_once_with()
@@ -152,7 +160,9 @@ class PagamentoDatabaseTests(unittest.TestCase):
             for _, name, pk, payload in ENTITIES:
                 with self.subTest(entity=name):
                     repo = getattr(repositories, name + "Repository")(self.session)
-                    row = repo.create(create_schema(name, payload))
+                    # Repository não aplica regras de domínio; usa o usuário já criado.
+                    repository_payload = {**payload, "id_usuario": 1} if name == "Aprovacao" else payload
+                    row = repo.create(create_schema(name, repository_payload))
                     entity_id = getattr(row, pk)
                     self.assertIsInstance(entity_id, int)
                     self.assertIs(repo.get_by_id(entity_id), row)
@@ -212,9 +222,9 @@ class PagamentoDatabaseTests(unittest.TestCase):
                         self.assertEqual(error.exception.entity, repo.model.__name__)
                         self.assertEqual(error.exception.entity_id, value)
                         self.assertEqual(getattr(service.get_by_id(1), field), payload[field])
-                        self.assertEqual(len(service.list()), 1)
+                        self.assertEqual(len(service.list()), 2 if name == "Usuario" else 1)
         service.update(1, update_schema(name, changes(payload)))
-        self.assertEqual(len(service.list()), 1)
+        self.assertEqual(len(service.list()), 2 if name == "Usuario" else 1)
 
     def test_usuario_missing_foreign_keys(self):
         self.assert_missing_foreign_keys(1)
@@ -265,9 +275,9 @@ class PagamentoDatabaseTests(unittest.TestCase):
                 with self.assertRaises(IntegrityError):
                     service.create(create_schema(name, payload))
                 rollback.assert_called_once_with()
-            self.assertEqual(len(service.list()), 1)
+            self.assertEqual(len(service.list()), 2 if name == "Usuario" else 1)
             service.create(create_schema(name, {**payload, unique: "nova"}))
-            self.assertEqual(len(service.list()), 2)
+            self.assertEqual(len(service.list()), 3 if name == "Usuario" else 2)
 
     def test_commit_failures_rollback_for_all_writes(self):
         self.seed()
@@ -282,7 +292,7 @@ class PagamentoDatabaseTests(unittest.TestCase):
                     with self.assertRaisesRegex(RuntimeError, "commit falhou"):
                         operation()
                     rollback.assert_called_once_with()
-                self.assertEqual(len(service.list()), 1)
+                self.assertEqual(len(service.list()), 2 if name == "Usuario" else 1)
                 for field, value in create_schema(name, payload).model_dump().items():
                     self.assertEqual(getattr(service.get_by_id(1), field), value)
         for _, name, _, _ in reversed(ENTITIES):

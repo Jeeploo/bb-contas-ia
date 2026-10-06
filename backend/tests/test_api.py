@@ -29,7 +29,7 @@ ENTITIES = (
     ("usuarios", "id_usuario", dict(matricula="TEST001", nome="Usuario teste", funcao="gerente", situacao="ativo", id_alcada=1, id_prefixo=1), {"nome": "Usuario revisado"}),
     ("ordens_pagamento", "id_ordem", dict(data_criacao="2026-10-06T13:00:00", data_prevista_pagamento="2026-10-20", valor_total="117.28", situacao="pendente", id_calculo=1, id_sistema=1, id_usuario_criador=1), {"data_prevista_pagamento": "2026-10-21"}),
     ("itens_pagamento", "id_item_pagamento", dict(codigo_evento="001", descricao_evento=None, codigo_subitem=None, descricao_subitem=None, valor="117.28", id_ordem=1), {"descricao_evento": "Pagamento de energia"}),
-    ("aprovacoes", "id_aprovacao", dict(data_hora="2026-10-06T14:00:00", decisao="aprovada", observacao=None, id_ordem=1, id_usuario=1), {"observacao": "Registro revisado"}),
+    ("aprovacoes", "id_aprovacao", dict(data_hora="2026-10-06T14:00:00", decisao="decisao-livre", observacao=None, id_ordem=1, id_usuario=2), {"observacao": "Registro revisado"}),
 )
 
 
@@ -59,6 +59,11 @@ class ApiTestCase(unittest.TestCase):
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
 
+    def ensure_checker(self, resource):
+        if resource == "aprovacoes" and self.client.get("/api/v1/usuarios/2").status_code == 404:
+            response = self.client.post("/api/v1/usuarios", json={**ENTITIES[12][2], "matricula": "CHECKER"})
+            self.assertEqual(response.status_code, 201, response.text)
+
     def restore_overrides(self, overrides):
         app.dependency_overrides.clear()
         app.dependency_overrides.update(overrides)
@@ -70,6 +75,7 @@ class ApiTests(ApiTestCase):
             with self.subTest(resource=resource):
                 url = "/api/v1/" + resource
                 self.assertEqual(self.client.get(url).json(), [])
+                self.ensure_checker(resource)
                 created = self.client.post(url, json=payload)
                 self.assertEqual(created.status_code, 201, created.text)
                 expected = {**payload, id_field: created.json()[id_field]}
@@ -90,6 +96,8 @@ class ApiTests(ApiTestCase):
         for resource, _, _, _ in reversed(ENTITIES):
             with self.subTest(delete=resource):
                 url = "/api/v1/" + resource
+                if resource == "usuarios":
+                    self.assertEqual(self.client.delete(url + "/2").status_code, 204)
                 deleted = self.client.delete(url + "/1")
                 self.assertEqual(deleted.status_code, 204)
                 self.assertEqual(deleted.content, b"")
@@ -125,6 +133,7 @@ class ApiTests(ApiTestCase):
 
     def create_entity_chain(self):
         for resource, _, payload, _ in ENTITIES:
+            self.ensure_checker(resource)
             response = self.client.post("/api/v1/" + resource, json=payload)
             self.assertEqual(response.status_code, 201, response.text)
 
@@ -238,7 +247,7 @@ class ApiTests(ApiTestCase):
                 if resource == "sistemas_pagamento":
                     second_payload["nome"] = "Segundo sistema"
                 if resource == "usuarios":
-                    second_payload["matricula"] = "TEST002"
+                    second_payload["matricula"] = "TEST003"
                 created = self.client.post(url, json=second_payload)
                 self.assertEqual(created.status_code, 201, created.text)
                 first_page = self.client.get(url, params={"offset": 0, "limit": 1})
@@ -247,7 +256,7 @@ class ApiTests(ApiTestCase):
                 self.assertEqual(second_page.status_code, 200)
                 self.assertEqual(len(first_page.json()), 1)
                 self.assertEqual(first_page.json()[0][id_field], 1)
-                self.assertEqual(second_page.json(), [created.json()])
+                self.assertEqual(second_page.json(), [self.client.get(url + "/2").json()] if resource == "usuarios" else [created.json()])
 
     def test_usuario_optional_foreign_keys_can_be_cleared(self):
         self.create_entity_chain()

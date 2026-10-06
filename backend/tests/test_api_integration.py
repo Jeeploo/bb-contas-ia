@@ -15,7 +15,7 @@ FOREIGN_KEYS = {
         "id_usuario_criador": "usuarios",
     },
     "itens_pagamento": {"id_ordem": "ordens_pagamento"},
-    "aprovacoes": {"id_ordem": "ordens_pagamento", "id_usuario": "usuarios"},
+    "aprovacoes": {"id_ordem": "ordens_pagamento"},
     "itens_regra": {"id_regra": "regras_calculo"},
     "calculos": {"id_conta": "contas_consumo", "id_regra": "regras_calculo"},
     "prefixos": {"id_localidade": "localidades"},
@@ -40,7 +40,7 @@ class ApiIntegrationTests(test_api.ApiTestCase):
                 self.assertEqual(fetched.json(), expected)
                 listed = self.client.get(url)
                 self.assertEqual(listed.status_code, 200, listed.text)
-                self.assertEqual(listed.json(), [expected])
+                self.assertEqual(listed.json(), [expected, self.client.get(url + "/2").json()] if resource == "usuarios" and self.client.get(url + "/2").status_code == 200 else [expected])
                 for field, parent in FOREIGN_KEYS.get(resource, {}).items():
                     self.assertEqual(fetched.json()[field], ids[parent])
                     self.assertEqual(listed.json()[0][field], ids[parent])
@@ -60,6 +60,7 @@ class ApiIntegrationTests(test_api.ApiTestCase):
             payload = template.copy()
             for field, parent in FOREIGN_KEYS.get(resource, {}).items():
                 payload[field] = ids[parent]
+            self.ensure_checker(resource)
             created = self.client.post(url, json=payload)
             self.assertEqual(created.status_code, 201, created.text)
             entity_id = created.json()[id_field]
@@ -97,6 +98,8 @@ class ApiIntegrationTests(test_api.ApiTestCase):
         # Filhos antes dos pais, com FKs habilitadas durante todas as deleções.
         for resource, _, _, _ in reversed(test_api.ENTITIES):
             url = f"/api/v1/{resource}/{ids[resource]}"
+            if resource == "usuarios":
+                self.assertEqual(self.client.delete("/api/v1/usuarios/2").status_code, 204)
             deleted = self.client.delete(url)
             self.assertEqual(deleted.status_code, 204, deleted.text)
             self.assertEqual(deleted.content, b"")
