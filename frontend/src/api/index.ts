@@ -1,6 +1,13 @@
 import { listAll, request } from './client';
-import type { ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
+import type { ItemRegra, PerfilProcessamento, ItemExtraido, RespostaCalculoContextual, Localidade, RegraCalculo, ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
 export const api = {
+    perfis: () => listAll<PerfilProcessamento>('perfis_processamento'),
+    itensExtraidos: () => listAll<ItemExtraido>('itens_extraidos'),
+    localidades: () => listAll<Localidade>('localidades'),
+    itensRegra: () => listAll<ItemRegra>('itens_regra'),
+    regras: () => listAll<RegraCalculo>('regras_calculo'),
+    validarItem: (id: number, valor?: string) => request<ItemExtraido>(`/itens_extraidos/${id}/validacao`, { method: 'PATCH', body: JSON.stringify(valor === undefined ? {} : { valor_validado: valor }) }),
+    calcular: (id: number) => request<RespostaCalculoContextual>(`/contas_consumo/${id}/calcular`, { method: 'POST' }),
     contas: () => listAll<ContaConsumo>('contas_consumo'), conta: (id: number) => request<ContaConsumo>(`/contas_consumo/${id}`),
     documentos: () => listAll<Documento>('documentos'), extracoes: () => listAll<ExtracaoInteligente>('extracoes_inteligentes'), dados: () => listAll<DadoExtraido>('dados_extraidos'),
     calculos: () => listAll<Calculo>('calculos'), ordens: () => listAll<OrdemPagamento>('ordens_pagamento'), ordem: (id: number) => request<OrdemPagamento>(`/ordens_pagamento/${id}`), itens: () => listAll<ItemPagamento>('itens_pagamento'),

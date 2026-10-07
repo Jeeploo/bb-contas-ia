@@ -528,3 +528,12 @@ tbody tr:hover {
     display:none;
   }
 }
+
+.context-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
+.context-grid dt { font-size:12px; color:#718094; }
+dd { margin:4px 0 12px; }
+.normalized { display:block; color:#24528a; margin:6px 0; }
+details { margin-top:12px; }
+summary { cursor:pointer; color:#24528a; }
+.calculation-memory { padding:12px 0 24px; border-bottom:1px solid #e1e6ed; }
+h3 { font-size:15px; }
