@@ -32,6 +32,9 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
             throw new Error('A API retornou uma resposta inválida.');
     }
     if (!response.ok) {
+        if (response.status >= 500) {
+            throw new ApiError(response.status, 'O serviço não conseguiu concluir a operação. Tente novamente em instantes.');
+        }
         const detail = data && typeof data === 'object' && 'detail' in data ? detailMessage(data.detail) : '';
         const friendly = response.status === 404 ? 'Registro não encontrado. Atualize a página e tente novamente.' : response.status === 409 && /criador|própria/i.test(detail) ? 'Autoaprovação bloqueada: escolha um aprovador diferente do criador da ordem.' : response.status === 403 ? 'Alçada insuficiente: escolha um usuário com limite financeiro adequado.' : detail || `Não foi possível concluir a operação (HTTP ${response.status}).`;
         throw new ApiError(response.status, friendly);

@@ -1,3 +1,5 @@
+> Registro histórico da etapa desktop, anterior ao direcionamento web. Para executar o MVP atual, siga o README.
+
 # Demonstração desktop — etapa 6A
 
 O desktop resolve o contexto pelo cadastro do Prefixo e mostra a interpretação normalizada do documento. O usuário valida valores e solicita o cálculo; não seleciona fórmula nem estratégia.

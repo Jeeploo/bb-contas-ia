@@ -1,12 +1,50 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { HashRouter, Routes, Route, Link } from 'react-router-dom';
-import { DesktopLayout } from './layout/DesktopLayout';
-import { Dashboard } from './pages/Dashboard';
-import { Contas } from './pages/Contas';
-import { ContaDetalhes } from './pages/ContaDetalhes';
-import { Processamento, Validacoes } from './pages/Operacao';
-import { Calculos, Ordens, OrdemDetalhes } from './pages/Pagamentos';
-import { Aprovacoes } from './pages/Aprovacoes';
-import './styles.css';
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><HashRouter><Routes><Route element={<DesktopLayout />}><Route index element={<Dashboard />}/><Route path="contas" element={<Contas />}/><Route path="contas/:id" element={<ContaDetalhes />}/><Route path="processamento" element={<Processamento />}/><Route path="validacoes" element={<Validacoes />}/><Route path="calculos" element={<Calculos />}/><Route path="ordens" element={<Ordens />}/><Route path="ordens/:id" element={<OrdemDetalhes />}/><Route path="aprovacoes" element={<Aprovacoes />}/><Route path="*" element={<div className="state">Página não encontrada. <Link to="/">Voltar ao dashboard</Link></div>}/></Route></Routes></HashRouter></React.StrictMode>);
+import React, { useState } from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AppShell } from "./components/payment/AppShell";
+import { DemoAccess } from "./pages/DemoAccess";
+import { PaymentJourney } from "./pages/PaymentJourney";
+import { InvoiceHistory } from "./pages/InvoiceHistory";
+import "./styles.css";
+import "./visual.css";
+function App() {
+  const [entered, setEntered] = useState(false);
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={<DemoAccess onEnter={() => setEntered(true)} />}
+        />
+        <Route element={entered ? <AppShell /> : <Navigate to="/" replace />}>
+          <Route path="pagamentos" element={<PaymentJourney />} />
+          <Route path="faturas" element={<InvoiceHistory />} />
+          <Route
+            path="relatorios"
+            element={
+              <>
+                <div className="page-title"><h1>Relatórios</h1><p>Acompanhe as informações das suas faturas.</p></div>
+                <section className="card">
+                  <h2>Em breve</h2>
+                  <p>
+                    Os relatórios serão disponibilizados em uma próxima etapa do
+                    MVP.
+                  </p>
+                </section>
+              </>
+            }
+          />
+        </Route>
+        <Route
+          path="*"
+          element={<Navigate to={entered ? "/pagamentos" : "/"} replace />}
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
