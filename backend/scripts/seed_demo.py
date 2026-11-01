@@ -1,17 +1,19 @@
-"""Preparação manual pela API real. Não modifica registros existentes.
+"""Seed manual de manutenção, via DATABASE_URL, sem servidor, HTTP ou chamadas IA.
 
-Execute com backend iniciado: .venv/bin/python scripts/seed_demo.py
+python scripts/seed_demo.py --ambiente-demo
 Use --cenario ensaio-2 para uma nova conta/ordem sem apagar histórico.
 """
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from unicodedata import combining, normalize
 
 import httpx
 
-API = 'http://127.0.0.1:8000/api/v1'
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+API = '/api/v1'
 FIXTURES = Path(__file__).resolve().parents[1] / 'demo/cenarios_documentais.json'
 
 
@@ -224,15 +226,17 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch(r'[a-z0-9-]{1,40}', args.cenario):
         parser.error('--cenario deve conter 1 a 40 letras minúsculas, números ou hífens')
+    from app.core.config import settings
+    if not settings.demo_auth_enabled:
+        parser.error('O seed exige DEMO_MODE=true e --ambiente-demo')
+    from app.core.database import SessionLocal
+    from scripts.seed_client import MaintenanceSeedClient
     try:
-        with httpx.Client(timeout=30, trust_env=False) as client:
-            health = client.get('http://127.0.0.1:8000/health')
-            health.raise_for_status()
-            if health.json().get('database') != 'connected':
-                raise RuntimeError('PostgreSQL indisponível')
-            prepare(client, args.cenario)
-    except (httpx.HTTPError, RuntimeError) as error:
-        parser.exit(1, f'Preparação interrompida: {error}\nRegistros já criados são preservados; execute novamente após corrigir a causa.\n')
+        with SessionLocal() as session:
+            prepare(MaintenanceSeedClient(session),args.cenario)
+    except Exception:
+        # Exceções de banco podem carregar SQL e valores; não imprimir repr/URL.
+        parser.exit(1, 'Preparação interrompida. Confira configuração e cadastros; registros já criados foram preservados.\n')
 
 
 if __name__ == '__main__':

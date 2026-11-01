@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 def _diagnostico_openai(exc, encoded):
     """Diagnóstico temporário: allowlist, sem serializar exceção/request/headers."""
+    if settings.external:
+        logger.warning('openai_request_failed status_http=%s', getattr(exc, 'status_code', None))
+        return
     body = exc.body if isinstance(exc.body, dict) else {}
     body = body.get('error', body)
     body = body if isinstance(body, dict) else {}

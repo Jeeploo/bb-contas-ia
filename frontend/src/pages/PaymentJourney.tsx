@@ -1,9 +1,10 @@
 import { ValidationSummary } from "../components/payment/ValidationSummary";
+import { useAuth } from "../auth/AuthContext";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { parseCompetenciaDisplay } from "../utils/competencia";
 import { api } from "../api";
 import { errorMessage } from "../api/client";
-import { useResource, money } from "../components/ui";
+import { money } from "../components/ui";
 import {
   PaymentStepper,
   ProcessingState,
@@ -16,20 +17,12 @@ import {
   ConfirmationCard,
   CalculationSummary,
   labels,
+  documentaryMessages,
+  itemLabels,
 } from "../components/payment/InvoiceSummary";
 import type { ProcessamentoDocumento, Calculo, Documento } from "../types";
-const load = async () => {
-  const [contas, prefixos, concessionarias] = await Promise.all([
-    api.contas(),
-    api.prefixos(),
-    api.concessionarias(),
-  ]);
-  return { contas, prefixos, concessionarias };
-};
 export function PaymentJourney() {
-  const r = useResource(load);
-  const [params] = useSearchParams();
-  const [id, setId] = useState(params.get("conta") ?? "");
+  const { session, changingPrefix, selectPrefix } = useAuth();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File>();
   const [doc, setDoc] = useState<Documento>();
@@ -38,21 +31,17 @@ export function PaymentJourney() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-  const conta = r.data?.contas.find((c) => c.id_conta === Number(id));
+  const prefixos = session?.prefixos ?? [];
+  const selectedPrefix = prefixos.find(p=>p.id_prefixo === session?.id_prefixo_ativo);
+  const accountId = result?.documento.id_conta;
   async function process() {
-    if (!file || !conta) return;
+    if (!file || !selectedPrefix || changingPrefix) return;
     setError("");
-    if (!/\.pdf$/i.test(file.name)) {
-      setError(
-        "O backend atual processa apenas PDF. Selecione uma versão PDF da fatura para continuar.",
-      );
-      return;
-    }
     setBusy(true);
     try {
-      const uploaded = doc ?? (await api.upload(conta.id_conta, file));
+      const uploaded = doc ?? (await api.uploadInicial(file));
       setDoc(uploaded);
-      const response = await api.processar(uploaded.id_documento);
+      const response = await api.processarInteligente(uploaded.id_documento);
       setResult(response);
       setCalculo(undefined);
       setStep(2);
@@ -63,20 +52,16 @@ export function PaymentJourney() {
     }
   }
   async function validate(values?: Record<string, string>) {
-    if (!result || !conta) return;
+    if (!result) return;
     setBusy(true);
     setError("");
     setCalculo(undefined);
     try {
       const campos = [];
       for (const d of result.campos_encontrados) {
-        const updated = await api.validar(
-          d.id_dado_extraido,
-          values?.["d" + d.id_dado_extraido] ??
-            d.valor_validado ??
-            d.valor_extraido ??
-            "",
-        );
+        const value = values?.["d" + d.id_dado_extraido] ?? d.valor_validado ?? d.valor_normalizado ?? d.valor_extraido ?? "";
+        const updated = await api.validar(d.id_dado_extraido,
+          d.campo_identificado === "competencia" ? parseCompetenciaDisplay(value) : value);
         campos.push(updated);
         setResult((old) =>
           old
@@ -108,14 +93,23 @@ export function PaymentJourney() {
             : old,
         );
       }
-      setResult({
-        ...result,
-        campos_encontrados: campos,
-        itens_encontrados: itens,
-      });
+      // Recupera a decisão e o vínculo após as correções, sem chamar a IA novamente.
+      const [extracao, documento] = await Promise.all([
+        api.extracoes().then((all) => all.find((e) => e.id_extracao === result.extracao.id_extracao)),
+        api.documentos().then((all) => all.find((d) => d.id_documento === result.documento.id_documento)),
+      ]);
+      const reviewed = { ...result, campos_encontrados: campos, itens_encontrados: itens,
+        extracao: extracao ?? result.extracao, documento: documento ?? result.documento };
+      setResult(reviewed);
       setEditing(false);
-      setCalculo(await api.calcular(conta.id_conta));
-      if (!values) setStep(3);
+      if (!values) {
+        if (!reviewed.documento.id_conta || reviewed.extracao.resultado_validacao_documental !== "VALIDO") {
+          setError("Confira a validação cadastral antes de continuar. O documento permanece em revisão.");
+          return;
+        }
+        setCalculo(await api.calcular(reviewed.documento.id_conta));
+        setStep(3);
+      }
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -123,25 +117,21 @@ export function PaymentJourney() {
     }
   }
   const fields = (() => {
-    if (!conta) return [];
     const values = new Map<string, string>();
-    values.set("Tipo da fatura", conta.categoria);
-    const p = r.data?.prefixos.find((p) => p.id_prefixo === conta.id_prefixo);
-    if (p) values.set("Prefixo", p.codigo_prefixo);
-    const c = r.data?.concessionarias.find(
-      (c) => c.id_concessionaria === conta.id_concessionaria,
-    );
-    if (c) values.set("Concessionária", c.nome_fantasia ?? c.razao_social);
+    if (selectedPrefix) values.set("Prefixo", `${selectedPrefix.codigo_prefixo} — ${selectedPrefix.nome}`);
     for (const d of result?.campos_encontrados ?? []) {
-      const value = d.valor_validado ?? d.valor_extraido;
+      const value = d.valor_validado ?? d.valor_normalizado ?? d.valor_extraido;
       const label = labels[d.campo_identificado];
       if (value && label)
         values.set(
           label,
-          d.campo_identificado === "valor_original" ? money(value) : value,
+          ["valor_original", "valor_total"].includes(d.campo_identificado) ? money(value) : value,
         );
     }
-    return [...values].map(([label, value]) => ({ label, value }));
+    const unit = values.get("Unidade de consumo");
+    if (unit && values.has("Consumo")) { values.set("Consumo", `${values.get("Consumo")} ${unit}`); values.delete("Unidade de consumo"); }
+    const order = ["Tipo da fatura", "Valor da fatura", "Data de vencimento", "Competência", "Prefixo", "Concessionária", "Unidade consumidora", "Consumo", "Código de barras", "Município", "UF"];
+    return [...values].sort(([a], [b]) => (order.includes(a) ? order.indexOf(a) : order.length) - (order.includes(b) ? order.indexOf(b) : order.length)).map(([label, value]) => ({ label, value }));
   })();
   function reset() {
     setStep(1);
@@ -174,43 +164,20 @@ export function PaymentJourney() {
             <div className="upload-heading"><span className="section-number">1</span><div><h2>Upload da fatura</h2><p>Envie uma imagem ou PDF para leitura automática dos dados</p></div></div>
             <UploadArea file={file} onChange={(f) => { setFile(f); setDoc(undefined); setError(""); }} />
             <p className="upload-hint">Use um documento com boa qualidade para melhorar a leitura automática.</p>
-            <details className="reference-account" open={!!file && !conta}><summary>Vincular conta cadastrada{conta ? ` · ${conta.categoria} · ${conta.competencia}` : ""}</summary>
-            {r.loading ? (
-              <p role="status">Carregando contas…</p>
-            ) : r.error ? (
-              <div className="notice error" role="alert">
-                {r.error}
-                <button onClick={r.reload}>Tentar novamente</button>
-              </div>
-            ) : !r.data?.contas.length ? (
-              <p>
-                Nenhuma conta cadastrada. Cadastre uma conta de referência no
-                ambiente para receber a fatura.
-              </p>
-            ) : (
-              <label>
-                Conta de referência
-                <select
-                  value={id}
-                  onChange={(e) => {
-                    setId(e.target.value);
-                    setDoc(undefined);
-                  }}
-                >
-                  <option value="">Selecione uma conta</option>
-                  {r.data.contas.map((c) => (
-                    <option key={c.id_conta} value={c.id_conta}>
-                      {c.categoria} · {c.competencia} · Conta {c.id_conta}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            </details>
+            {prefixos.length === 1 ? <p>Prefixo: {selectedPrefix?.codigo_prefixo} — {selectedPrefix?.nome}</p> : <label>Prefixo
+              <select aria-label="Prefixo" disabled={changingPrefix} value={selectedPrefix?.id_prefixo ?? ""} onChange={async (e) => {
+                setDoc(undefined); setError("");
+                try { await selectPrefix(Number(e.target.value)); } catch (err) { setError(errorMessage(err)); }
+              }}>
+                <option value="" disabled>Selecione um prefixo autorizado</option>
+                {prefixos.map(p=><option key={p.id_prefixo} value={p.id_prefixo}>{p.codigo_prefixo} — {p.nome}</option>)}
+              </select>
+            </label>}
+            {!prefixos.length && <p>Nenhum prefixo ativo autorizado.</p>}
             <div className="actions">
               <button
                 className="primary"
-                disabled={!file || !conta}
+                disabled={!file || !selectedPrefix || changingPrefix}
                 onClick={() => void process()}
               >
                 Iniciar processamento
@@ -236,13 +203,15 @@ export function PaymentJourney() {
                 </button>
               </div>
               {result.campos_encontrados.length ? (
-                <><InvoiceSummary fields={fields} /><CalculationSummary calculo={calculo} /></>
+                <><InvoiceSummary fields={fields} /><p className="hint">Dados extraídos automaticamente, pendentes de confirmação.</p>{calculo && <CalculationSummary calculo={calculo} />}</>
               ) : (
                 <p>
                   Nenhum campo extraído. Envie outro documento com dados
                   legíveis.
                 </p>
               )}
+              <p className="notice" role="status">{documentaryMessages[result.extracao.resultado_validacao_documental ?? "EVIDENCIA_INSUFICIENTE"]}</p>
+              <p>Correspondência cadastral da concessionária: {result.extracao.evidencias_validacao_documental?.id_concessionaria ? "encontrada" : "não encontrada — revisão necessária"}</p>
               {result.itens_encontrados.length > 0 && (
                 <details>
                   <summary>
@@ -251,16 +220,13 @@ export function PaymentJourney() {
                   </summary>
                   {result.itens_encontrados.map((i) => (
                     <p key={i.id_item_extraido}>
-                      {i.descricao_original}:{" "}
+                      {itemLabels[i.tipo_normalizado] ?? i.tipo_normalizado.replaceAll("_", " ")}:{" "}
                       {money(i.valor_validado ?? i.valor)}
                     </p>
                   ))}
                 </details>
               )}
-              <p className="hint">
-                Ao continuar, você confirma os dados e a composição
-                apresentados. O cálculo será aplicado automaticamente.
-              </p>
+              <p className="hint">Confirme os dados extraídos antes de continuar. O cálculo exige correspondência cadastral e validação documental.</p>
             </section>
           </div>
           <div className="actions">
@@ -269,7 +235,7 @@ export function PaymentJourney() {
             </button>
             <button
               className="primary"
-              disabled={busy || !result.campos_encontrados.length}
+              disabled={busy || !result.campos_encontrados.length || !accountId || result.extracao.resultado_validacao_documental !== "VALIDO"}
               onClick={() => void validate()}
             >
               {busy ? "Validando e calculando…" : "Enviar para validação"}

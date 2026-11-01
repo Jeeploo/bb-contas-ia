@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
@@ -30,6 +30,12 @@ def list_entities(
     limit: Annotated[int, Query(gt=0)] = 100,
 ):
     return DocumentoService(session).list(offset=offset, limit=limit)
+
+
+@router.post("/upload", response_model=DocumentoRead, status_code=201)
+def upload_inicial(session: DatabaseSession, file: UploadFile, contexto=Depends(get_contexto_operacional)):
+    return ProcessamentoDocumentoService(session).upload_inicial(
+        file.file, file.filename or "", file.content_type or "", contexto)
 
 
 @router.get("/{id}", response_model=DocumentoRead)
@@ -68,6 +74,6 @@ def tentativas_ia(id_documento: int, session: DatabaseSession, contexto=Depends(
     if contexto is None:
         raise ContextoOperacionalError('Consulta exige contexto de usuário')
     prefix = ContextoOperacionalService(session).resolver(contexto.id_usuario, contexto.id_prefixo)
-    if prefix.id_prefixo != document.conta.id_prefixo:
+    if prefix.id_prefixo != (document.conta.id_prefixo if document.conta else document.id_prefixo_contexto):
         raise ContextoOperacionalError('Prefixo não autorizado para a conta')
     return {'tentativas': document.historico_leitura_ia}

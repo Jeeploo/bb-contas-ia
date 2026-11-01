@@ -3,7 +3,7 @@ from app.document_ai.base import DocumentAIError
 from fastapi.routing import APIRoute
 
 from app.services.exceptions import (
-    TesseractUnavailableError, OcrLanguageUnavailableError, OcrPageLimitExceededError,
+    DocumentStorageError, TesseractUnavailableError, OcrLanguageUnavailableError, OcrPageLimitExceededError,
     PdfRenderingError, EmptyOcrError, OcrExecutionError,
     DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
     UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError,
@@ -22,10 +22,10 @@ class EntityNotFoundRoute(APIRoute):
         async def handle(request):
             try:
                 return await handler(request)
-            except (TesseractUnavailableError, OcrLanguageUnavailableError, OcrPageLimitExceededError,
+            except (DocumentStorageError, TesseractUnavailableError, OcrLanguageUnavailableError, OcrPageLimitExceededError,
                     PdfRenderingError, EmptyOcrError, OcrExecutionError, DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
                     UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError) as exc:
-                codes = {TesseractUnavailableError: 503, OcrLanguageUnavailableError: 503,
+                codes = {DocumentStorageError: 503, TesseractUnavailableError: 503, OcrLanguageUnavailableError: 503,
                          OcrPageLimitExceededError: 413, PdfRenderingError: 422,
                          EmptyOcrError: 422, OcrExecutionError: 422, DocumentFileNotFoundError: 404, InvalidPdfError: 400,
                          PdfWithoutTextError: 422, UnsupportedDocumentFormatError: 415,

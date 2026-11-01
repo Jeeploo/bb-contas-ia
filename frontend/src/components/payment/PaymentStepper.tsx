@@ -31,7 +31,8 @@ export function ProcessingState({ received }: { received: boolean }) {
           "Extraindo informações",
           "Identificando tipo de fatura",
           "Lendo valores e datas",
-          "Aplicando regras de cálculo",
+          "Validação cadastral",
+          "Preparando resumo",
         ].map((s, i) => (
           <li key={s}>
             {i === 0 && received ? "✓" : "○"} {s}

@@ -12,6 +12,7 @@ class AprovacaoBase(BaseModel):
 
 
 class AprovacaoCreate(AprovacaoBase):
+    id_usuario: int | None = None
     model_config = ConfigDict(extra="forbid")
 
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.api import EntityNotFoundRoute
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, get_contexto_operacional
 from app.models import UsuarioPrefixo, ExtracaoInteligente, UnidadeConsumidora
 from app.schemas.leitura_documental import ContextoDocumental, LeituraDocumental
 from app.schemas.vinculos import UsuarioPrefixosDefinicao, UnidadeConsumidoraCreate, UnidadeConsumidoraRead, UnidadeConsumidoraUpdate
@@ -38,22 +38,29 @@ def cadastrar_unidade(data: UnidadeConsumidoraCreate, session: DB):
 
 @router.get("/unidades_consumidoras", response_model=list[UnidadeConsumidoraRead])
 def listar_unidades(session: DB):
-    return session.scalars(select(UnidadeConsumidora)).all()
+    query = select(UnidadeConsumidora)
+    if 'auth_scope' in session.info:
+        query = query.where(UnidadeConsumidora.id_prefixo.in_(session.info['auth_scope'][0]))
+    return session.scalars(query).all()
 
 
 @router.post("/documentos/{id_documento}/interpretacao", response_model=ExtracaoInteligenteRead, status_code=201)
-def registrar_interpretacao(id_documento: int, leitura: LeituraDocumental, contexto: ContextoDocumental, session: DB):
+def registrar_interpretacao(id_documento: int, leitura: LeituraDocumental, session: DB, contexto: ContextoDocumental | None = None, operacional=Depends(get_contexto_operacional)):
+    contexto = operacional if operacional is not None else contexto
     return InterpretacaoDocumentalService(session).registrar(id_documento, leitura, contexto)
 
 
 @router.post("/extracoes_inteligentes/{id_extracao}/revalidar", response_model=ExtracaoInteligenteRead)
-def revalidar(id_extracao: int, contexto: ContextoDocumental, session: DB):
+def revalidar(id_extracao: int, session: DB, contexto: ContextoDocumental | None = None, operacional=Depends(get_contexto_operacional)):
+    contexto = operacional if operacional is not None else contexto
     try:
         extraction = session.scalar(select(ExtracaoInteligente).where(
             ExtracaoInteligente.id_extracao == id_extracao).with_for_update())
         if extraction is None:
             raise EntityNotFoundError("ExtracaoInteligente", id_extracao)
         ValidacaoDocumentalService(session).revalidar(extraction, contexto)
+        from app.services.conta_consumo import ContaConsumoService
+        ContaConsumoService(session).criar_da_leitura(extraction)
         session.commit()
         return extraction
     except Exception:

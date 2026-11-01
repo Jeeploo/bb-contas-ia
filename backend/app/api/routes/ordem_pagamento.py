@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
 from app.api.dependencies import get_db
+from app.api.auth_dependencies import get_current_user
 from app.schemas.ordem_pagamento import OrdemPagamentoCreate, OrdemPagamentoRead, OrdemPagamentoUpdate
 from app.services.ordem_pagamento import OrdemPagamentoService
 
@@ -16,7 +17,9 @@ DatabaseSession = Annotated[Session, Depends(get_db)]
 
 
 @router.post("", response_model=OrdemPagamentoRead, status_code=status.HTTP_201_CREATED)
-def create(data: OrdemPagamentoCreate, session: DatabaseSession):
+def create(data: OrdemPagamentoCreate, session: DatabaseSession, user=Depends(get_current_user)):
+    if user is not None:  # Production dependency always returns an authenticated user.
+        data = data.model_copy(update={"id_usuario_criador": user.id_usuario})
     return OrdemPagamentoService(session).create(data)
 
 

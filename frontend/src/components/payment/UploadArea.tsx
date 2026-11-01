@@ -45,7 +45,7 @@ export function UploadArea({
           }}
         />
         <small>
-          Leitura automática disponível para PDF neste ambiente.
+          Leitura inteligente de PDF e imagens.
         </small>
       </div>
       {error && (
@@ -53,7 +53,6 @@ export function UploadArea({
           {error}
         </p>
       )}
-      {file && !/\.pdf$/i.test(file.name) && <p className="notice" role="status">Imagem selecionada. A leitura automática está disponível apenas para PDF. Selecione a versão PDF para continuar.</p>}
       {file && (
         <div className="file-row">
           <FileText />

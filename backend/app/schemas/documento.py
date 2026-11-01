@@ -9,7 +9,7 @@ class DocumentoBase(BaseModel):
     data_recebimento: datetime
     origem: str
     caminho_arquivo: str
-    id_conta: int
+    id_conta: int | None = None
 
 
 class DocumentoCreate(DocumentoBase):

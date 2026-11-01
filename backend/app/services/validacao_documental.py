@@ -88,7 +88,7 @@ class ValidacaoDocumentalService:
     def revalidar(self, extraction, contexto=None):
         if contexto is not None:
             prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
-            if prefix.id_prefixo != extraction.documento.conta.id_prefixo:
+            if prefix.id_prefixo != (extraction.documento.conta.id_prefixo if extraction.documento.conta else extraction.documento.id_prefixo_contexto):
                 raise ContextoOperacionalError("Prefixo selecionado diferente do prefixo da conta")
             extraction.id_usuario_contexto = contexto.id_usuario
             extraction.id_prefixo_contexto = prefix.id_prefixo
@@ -100,7 +100,7 @@ class ValidacaoDocumentalService:
             dados[field.campo_identificado] = (field.valor_validado
                 if field.situacao_validacao == "validada" and field.valor_validado is not None else (field.valor_normalizado if field.valor_normalizado is not None else field.valor_extraido))
         status, reason, evidence = self.avaliar(dados, extraction.id_usuario_contexto,
-            extraction.id_prefixo_contexto, extraction.documento.conta.id_prefixo)
+            extraction.id_prefixo_contexto, extraction.documento.conta.id_prefixo if extraction.documento.conta else extraction.documento.id_prefixo_contexto)
         if duplicated:
             status, reason = R.EVIDENCIA_INSUFICIENTE.value, "Campos duplicados na extração"
         evidence["origens"] = {f.campo_identificado: {"id_dado_extraido": f.id_dado_extraido,

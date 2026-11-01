@@ -77,3 +77,7 @@ class CalculationError(ValueError):
 
 class ContextoOperacionalError(ValueError):
     """Contexto de operação ausente, ambíguo ou não autorizado."""
+
+
+class DocumentStorageError(DocumentError):
+    """Storage temporariamente indisponível; mensagens não contêm detalhes do SDK."""

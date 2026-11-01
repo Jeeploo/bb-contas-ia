@@ -14,7 +14,7 @@ from app.models.extracao_inteligente import ExtracaoInteligente
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.processing.storage import DocumentStorage, LocalDocumentStorage
+from app.processing.storage import (DocumentStorage, get_document_storage, storage_for_document, document_storage_key)
 from app.processing.text import DocumentTextExtractor
 from app.processing.ocr import HybridPdfTextExtractor
 from app.processing.fields import FieldExtractor
@@ -36,8 +36,7 @@ class ProcessamentoDocumentoService:
                  field_extractor: FieldExtractor | None = None,
                  structured_extractor: StructuredDocumentExtractor | None = None):
         self.session = session
-        self.storage = storage or LocalDocumentStorage(
-            settings.document_storage_path, settings.document_max_size_bytes)
+        self.storage = storage  # Override para testes; o default é resolvido por operação/documento.
         self.text_extractor = text_extractor or HybridPdfTextExtractor(max_pages=settings.max_ocr_pages)
         self.field_extractor = field_extractor
         self.structured_extractor = structured_extractor or DeterministicStructuredExtractor()
@@ -57,18 +56,56 @@ class ProcessamentoDocumentoService:
                 prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
                 if prefix.id_prefixo != ContaConsumoRepository(self.session).get_by_id(account_id).id_prefixo:
                     raise ContextoOperacionalError("Prefixo não corresponde à conta")
-            key = self.storage.save(source, filename, content_type)
+            storage = self.storage if self.storage is not None else get_document_storage()
+            key = storage.save(source, filename, content_type)
             document = self.documents.create(DocumentoCreate(
                 tipo_documento="fatura", formato=filename.rsplit(".", 1)[-1].lower(), origem="upload",
                 data_recebimento=datetime.now(timezone.utc).replace(tzinfo=None), caminho_arquivo=key,
                 id_conta=account_id))
+            document.storage_provider = storage.provider
+            document.storage_key = key
             self.session.commit()
         except Exception:
             self.session.rollback()
             if key is not None:
-                self.storage.delete(key)
+                try:
+                    storage.delete(key)
+                except Exception:
+                    # Não esconder a causa da falha transacional nem vazar erro do SDK.
+                    import logging
+                    logging.getLogger(__name__).warning('document_storage_cleanup_failed')
             raise
         return document
+
+    def upload_inicial(self, source, filename, content_type, contexto):
+        from app.services.contexto_operacional import ContextoOperacionalService
+        from app.services.exceptions import ContextoOperacionalError
+        if contexto is None:
+            raise ContextoOperacionalError("Upload exige contexto de usuário")
+        prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
+        key = None
+        try:
+            storage = self.storage if self.storage is not None else get_document_storage()
+            key = storage.save(source, filename, content_type)
+            document = Documento(tipo_documento="fatura", formato=filename.rsplit(".", 1)[-1].lower(),
+                origem="upload", data_recebimento=datetime.now(timezone.utc).replace(tzinfo=None),
+                caminho_arquivo=key, id_prefixo_contexto=prefix.id_prefixo,
+                id_usuario_contexto=contexto.id_usuario)
+            document.storage_provider = storage.provider
+            document.storage_key = key
+            self.session.add(document)
+            self.session.commit()
+            return document
+        except Exception:
+            self.session.rollback()
+            if key is not None:
+                try:
+                    storage.delete(key)
+                except Exception:
+                    # Não esconder a causa da falha transacional nem vazar erro do SDK.
+                    import logging
+                    logging.getLogger(__name__).warning('document_storage_cleanup_failed')
+            raise
 
     def _response(self, document: Documento, extraction: ExtracaoInteligente) -> ProcessamentoDocumentoRead:
         return ProcessamentoDocumentoRead(
@@ -88,8 +125,11 @@ class ProcessamentoDocumentoService:
                 from app.services.contexto_operacional import ContextoOperacionalService
                 from app.services.exceptions import ContextoOperacionalError
                 prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
-                if prefix.id_prefixo != document.conta.id_prefixo:
+                if prefix.id_prefixo != (document.conta.id_prefixo if document.conta else document.id_prefixo_contexto):
                     raise ContextoOperacionalError("Prefixo não corresponde à conta")
+            if document.conta is None:
+                from app.services.exceptions import ContextoOperacionalError
+                raise ContextoOperacionalError("Documento inicial exige processamento inteligente")
             existing = self.extractions.get_completed_for_document(document_id)
             if existing is not None:
                 if contexto is not None and (
@@ -103,10 +143,13 @@ class ProcessamentoDocumentoService:
                 return response
             if document.formato.lower() != "pdf":
                 raise UnsupportedDocumentFormatError("Somente PDF é suportado")
-            result = self.text_extractor.extract(self.storage.read(document.caminho_arquivo))
+            result = self.text_extractor.extract(storage_for_document(document, self.storage).read(document_storage_key(document)))
             if not result.sucesso:
                 raise InvalidPdfError("Extrator não concluiu a leitura do documento")
             account = document.conta
+            if account is None:
+                from app.services.exceptions import ContextoOperacionalError
+                raise ContextoOperacionalError("Documento inicial exige processamento inteligente")
             profiles = self.session.scalars(select(PerfilProcessamento).where(
                 PerfilProcessamento.id_prefixo == account.id_prefixo)).all()
             context = dict(id_prefixo=account.id_prefixo, uf=account.prefixo.localidade.estado,

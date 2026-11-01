@@ -15,6 +15,7 @@ class OrdemPagamentoBase(BaseModel):
 
 
 class OrdemPagamentoCreate(OrdemPagamentoBase):
+    id_usuario_criador: int | None = None
     model_config = ConfigDict(extra="forbid")
 
 

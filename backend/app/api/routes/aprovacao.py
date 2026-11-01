@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
 from app.api.dependencies import get_db
+from app.api.auth_dependencies import get_current_user
 from app.schemas.aprovacao import AprovacaoCreate, AprovacaoRead, AprovacaoUpdate
 from app.services.aprovacao import AprovacaoService
 
@@ -16,7 +17,9 @@ DatabaseSession = Annotated[Session, Depends(get_db)]
 
 
 @router.post("", response_model=AprovacaoRead, status_code=status.HTTP_201_CREATED)
-def create(data: AprovacaoCreate, session: DatabaseSession):
+def create(data: AprovacaoCreate, session: DatabaseSession, user=Depends(get_current_user)):
+    if user is not None:  # Production dependency always returns an authenticated user.
+        data = data.model_copy(update={"id_usuario": user.id_usuario})
     return AprovacaoService(session).create(data)
 
 

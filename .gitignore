@@ -3,3 +3,10 @@ backend/.env
 backend/__pycache__/
 backend/.pytest_cache/
 *.pyc
+
+# Configuração local e saídas de build; somente exemplos são versionáveis.
+frontend/.env.local
+frontend/.env.*.local
+frontend/dist/
+*demo-acessos*.json
+*demo-credentials*.json

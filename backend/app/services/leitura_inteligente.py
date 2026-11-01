@@ -8,10 +8,11 @@ from app.document_ai.base import DocumentAIError, InterpretacaoAI
 from app.document_ai.factory import get_document_ai_provider
 from app.document_ai.normalizacao import normalizar_leitura
 from app.processing.arquivo_documental import MIMES, validar_arquivo
+from app.processing.storage import storage_for_document, document_storage_key
 from app.services.contexto_operacional import ContextoOperacionalService
 from app.services.interpretacao_documental import InterpretacaoDocumentalService
 from app.services.validacao_documental import ValidacaoDocumentalService
-from app.services.exceptions import EntityNotFoundError, ContextoOperacionalError, DocumentError, DocumentTooLargeError, DocumentFileNotFoundError
+from app.services.exceptions import EntityNotFoundError, ContextoOperacionalError, DocumentError, DocumentTooLargeError, DocumentFileNotFoundError, DocumentStorageError
 from app.schemas.leitura_inteligente import ProcessamentoInteligenteRead
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ META_KEYS = {'provider','modelo_solicitado','modelo','response_id','data','promp
 
 
 class LeituraInteligenteService:
-    def __init__(self, session, storage, provider=None):
+    def __init__(self, session, storage=None, provider=None):
         self.session, self.storage = session, storage
         self.provider = provider or get_document_ai_provider()
 
@@ -40,16 +41,18 @@ class LeituraInteligenteService:
             if contexto is None:
                 raise ContextoOperacionalError('Leitura inteligente exige contexto de usuário')
             prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
-            if prefix.id_prefixo != document.conta.id_prefixo:
+            if prefix.id_prefixo != (document.conta.id_prefixo if document.conta else document.id_prefixo_contexto):
                 raise ContextoOperacionalError('Prefixo selecionado diferente do prefixo da conta')
             try:
-                data = self.storage.read(document.caminho_arquivo)
+                data = storage_for_document(document, self.storage).read(document_storage_key(document))
                 mime = MIMES.get('.'+document.formato.lower())
                 validar_arquivo(data, mime, verificar_pdf=True)
             except DocumentTooLargeError:
                 raise DocumentAIError('limite_tamanho', 413) from None
             except DocumentFileNotFoundError:
                 raise DocumentAIError('arquivo_indisponivel', 404) from None
+            except DocumentStorageError:
+                raise DocumentAIError('storage_indisponivel', 503) from None
             except DocumentError:
                 raise DocumentAIError('arquivo_invalido', 422) from None
             fingerprint = hashlib.sha256(data).hexdigest()
@@ -59,6 +62,8 @@ class LeituraInteligenteService:
             if not reprocessar and existing and (existing.metadados_ia or {}).get('sha256_documento') == fingerprint:
                 if existing.id_usuario_contexto != contexto.id_usuario or existing.id_prefixo_contexto != prefix.id_prefixo:
                     ValidacaoDocumentalService(self.session).revalidar(existing, contexto)
+                from app.services.conta_consumo import ContaConsumoService
+                ContaConsumoService(self.session).criar_da_leitura(existing)
                 response = self._response(document, existing)
                 self.session.commit()
                 return response

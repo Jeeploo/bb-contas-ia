@@ -21,9 +21,12 @@ export interface Documento {
     data_recebimento: string;
     origem: string;
     caminho_arquivo: string;
-    id_conta: number;
+    id_conta: number | null;
 }
 export interface ExtracaoInteligente {
+    resultado_validacao_documental?: string;
+    motivo_validacao_documental?: string;
+    evidencias_validacao_documental?: Record<string, unknown>;
     id_extracao: number;
     data_processamento: string;
     nivel_confianca: Decimal | null;
@@ -34,6 +37,7 @@ export interface ExtracaoInteligente {
 export interface DadoExtraido {
     id_dado_extraido: number;
     campo_identificado: string;
+    valor_normalizado?: string | null;
     valor_extraido: string | null;
     nivel_confianca: Decimal | null;
     situacao_validacao: string;
@@ -167,3 +171,11 @@ export interface Localidade { id_localidade: number; municipio: string; estado: 
 export interface RegraCalculo { id_regra: number; nome_regra: string; versao: string; situacao: string; data_inicio_vigencia: string; data_fim_vigencia: string | null }
 
 export interface ItemRegra { id_item_regra: number; id_regra: number; nome_item: string; tipo_item: string; obrigatorio: boolean; ordem_aplicacao: number }
+
+export interface AuthSession {
+    usuario: Pick<Usuario, 'id_usuario' | 'matricula' | 'nome' | 'funcao'>;
+    prefixos: Pick<Prefixo, 'id_prefixo' | 'codigo_prefixo' | 'nome'>[];
+    id_prefixo_principal: number | null;
+    id_prefixo_ativo: number | null;
+    expira_em: string;
+}

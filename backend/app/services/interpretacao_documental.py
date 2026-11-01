@@ -27,7 +27,7 @@ class InterpretacaoDocumentalService:
             if document is None:
                 raise EntityNotFoundError("Documento", document_id)
             prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
-            if prefix.id_prefixo != document.conta.id_prefixo:
+            if prefix.id_prefixo != (document.conta.id_prefixo if document.conta else document.id_prefixo_contexto):
                 raise ContextoOperacionalError("Prefixo selecionado diferente do prefixo da conta")
             extraction = ExtracaoInteligente(id_documento=document_id,
                 data_processamento=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -52,6 +52,8 @@ class InterpretacaoDocumentalService:
                         situacao_validacao="pendente"))
             self.session.flush()
             ValidacaoDocumentalService(self.session).revalidar(extraction)
+            from app.services.conta_consumo import ContaConsumoService
+            ContaConsumoService(self.session).criar_da_leitura(extraction)
             if commit:
                 self.session.commit()
             return extraction

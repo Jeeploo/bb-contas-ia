@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.api.auth_dependencies import authorize_request
 
 from app.api.routes import (
     perfil_processamento,
@@ -22,7 +23,7 @@ from app.api.routes import (
 )
 
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(authorize_request)])
 router.include_router(localidade.router)
 router.include_router(prefixo.router)
 router.include_router(concessionaria.router)
@@ -45,3 +46,8 @@ router.include_router(item_extraido.router)
 
 from app.api.routes.contexto_documental import router as contexto_router
 router.include_router(contexto_router)
+
+# Login/session endpoints have their own authentication dependencies.
+from app.api.routes.auth_demo import router as auth_router
+public_router = APIRouter(prefix="/api/v1")
+public_router.include_router(auth_router)

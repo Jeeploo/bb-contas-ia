@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { useAuth } from "../../auth/AuthContext";
+import { errorMessage } from "../../api/client";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Bell, Settings, Search, FileText, CreditCard, BarChart3, ChevronDown } from "lucide-react";
 
@@ -24,6 +27,13 @@ export function Sidebar() {
 
 export function Topbar() {
   const navigate = useNavigate();
+  const { session, logout } = useAuth();
+  const [error, setError] = useState("");
+  const prefix = session?.prefixos.find(p=>p.id_prefixo === session.id_prefixo_ativo);
+  async function signOut() {
+    try { await logout(); navigate('/', {replace:true}); }
+    catch(e) { setError(errorMessage(e)); }
+  }
   return (
     <header className="topbar">
       <div className="topbar-banner" aria-hidden="true" />
@@ -41,7 +51,7 @@ export function Topbar() {
           />
         </label>
         <div className="greeting">
-          <strong>Olá, Marcos!</strong>
+          <strong>Olá, {session?.usuario.nome}!</strong>
           <span>Veja um resumo das atividades da sua agência.</span>
         </div>
       </div>
@@ -49,10 +59,12 @@ export function Topbar() {
         <span className="header-icon" role="img" aria-label="Notificações demonstrativas" title="Notificações demonstrativas"><Bell size={22} /></span>
         <span className="header-icon" role="img" aria-label="Configurações demonstrativas" title="Configurações demonstrativas"><Settings size={22} /></span>
         <div className="profile">
-          <img className="avatar" src="/assets/avatar-demo.png" alt="Perfil demonstrativo de Marcos" />
-          <div className="profile-details"><strong>Marcos Gomes</strong><small>Gerente de Serviços</small><small>Pref. 9090</small></div>
+          <img className="avatar" src="/assets/avatar-demo.png" alt="Perfil DEMO" />
+          <div className="profile-details"><strong>{session?.usuario.nome}</strong><small>{session?.usuario.funcao}</small><small>{prefix ? `${prefix.codigo_prefixo} — ${prefix.nome}` : "Selecione uma unidade"}</small></div>
           <ChevronDown className="profile-chevron" size={15} aria-hidden="true" />
         </div>
+        <button onClick={() => void signOut()}>Sair</button>
+        {error && <p role="alert">{error}</p>}
       </div>
     </header>
   );

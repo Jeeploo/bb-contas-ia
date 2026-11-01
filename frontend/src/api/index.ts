@@ -1,6 +1,12 @@
 import { listAll, request } from './client';
 import type { ItemRegra, PerfilProcessamento, ItemExtraido, RespostaCalculoContextual, Localidade, RegraCalculo, ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
 export const api = {
+    prefixosUsuario: (id: number) => request<{ vinculos: { id_prefixo: number; ativo: boolean }[] }>(`/usuarios/${id}/prefixos`),
+    uploadInicial: (file: File) => {
+        const body = new FormData(); body.append('file', file);
+        return request<Documento>('/documentos/upload', { method: 'POST', body });
+    },
+    processarInteligente: (id: number) => request<ProcessamentoDocumento>(`/documentos/${id}/processar-inteligente`, { method: 'POST' }),
     perfis: () => listAll<PerfilProcessamento>('perfis_processamento'),
     itensExtraidos: () => listAll<ItemExtraido>('itens_extraidos'),
     localidades: () => listAll<Localidade>('localidades'),
@@ -15,5 +21,5 @@ export const api = {
     upload: (id: number, file: File) => { const body = new FormData(); body.append('file', file); return request<Documento>(`/contas_consumo/${id}/documentos/upload`, { method: 'POST', body }); },
     processar: (id: number) => request<ProcessamentoDocumento>(`/documentos/${id}/processar`, { method: 'POST' }),
     validar: (id: number, valor?: string) => request<DadoExtraido>(`/dados_extraidos/${id}/validacao`, { method: 'PATCH', body: JSON.stringify(valor === undefined ? {} : { valor_validado: valor }) }),
-    decidir: (id_ordem: number, id_usuario: number, decisao: 'aprovado' | 'rejeitado', observacao: string) => request<Aprovacao>('/aprovacoes', { method: 'POST', body: JSON.stringify({ id_ordem, id_usuario, decisao, observacao: observacao || null, data_hora: new Date().toISOString() }) }),
+    decidir: (id_ordem: number, decisao: 'aprovado' | 'rejeitado', observacao: string) => request<Aprovacao>('/aprovacoes', { method: 'POST', body: JSON.stringify({ id_ordem, decisao, observacao: observacao || null, data_hora: new Date().toISOString() }) }),
 };

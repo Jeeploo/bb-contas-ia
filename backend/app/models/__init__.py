@@ -45,3 +45,5 @@ __all__ = [
 
 from app.models.usuario_prefixo import UsuarioPrefixo
 from app.models.unidade_consumidora import UnidadeConsumidora
+
+from app.models.auth_demo import CredencialDemo, SessaoDemo

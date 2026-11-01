@@ -24,9 +24,14 @@ class Documento(Base):
     data_recebimento: Mapped[datetime] = mapped_column(nullable=False)
     origem: Mapped[str] = mapped_column(String, nullable=False)
     caminho_arquivo: Mapped[str] = mapped_column(String, nullable=False)
-    id_conta: Mapped[int] = mapped_column(
-        ForeignKey("contas_consumo.id_conta"), nullable=False
+    storage_provider: Mapped[str] = mapped_column(String(16), nullable=False, default="local", server_default="local")
+    storage_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    id_conta: Mapped[int | None] = mapped_column(
+        ForeignKey("contas_consumo.id_conta"), nullable=True
     )
 
-    conta: Mapped[ContaConsumo] = relationship(back_populates="documentos")
+    id_prefixo_contexto: Mapped[int | None] = mapped_column(ForeignKey("prefixos.id_prefixo"), nullable=True)
+    id_usuario_contexto: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id_usuario"), nullable=True)
+
+    conta: Mapped[ContaConsumo | None] = relationship(back_populates="documentos")
     extracoes: Mapped[list[ExtracaoInteligente]] = relationship(back_populates="documento")

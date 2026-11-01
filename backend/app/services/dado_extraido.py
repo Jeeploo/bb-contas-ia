@@ -27,11 +27,18 @@ class DadoExtraidoService(BaseService[DadoExtraido, DadoExtraidoCreate, DadoExtr
                 ExtracaoInteligente.id_extracao == instance.id_extracao).with_for_update())
             instance.valor_validado = (data.valor_validado if "valor_validado" in data.model_fields_set
                                       else (instance.valor_normalizado if instance.valor_normalizado is not None else instance.valor_extraido))
+            if instance.campo_identificado == "competencia":
+                import re
+                from app.services.exceptions import CalculationError
+                if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", instance.valor_validado or ""):
+                    raise CalculationError("Competência validada deve usar AAAA-MM")
             instance.situacao_validacao = "validada"
             self.session.flush()
             from app.services.validacao_documental import ValidacaoDocumentalService
             if instance.campo_identificado in {"tipo_documento", "uf", "municipio", "concessionaria", "unidade_consumidora", "endereco_unidade"}:
                 ValidacaoDocumentalService(self.session).revalidar(instance.extracao)
+            from app.services.conta_consumo import ContaConsumoService
+            ContaConsumoService(self.session).criar_da_leitura(instance.extracao)
             self.session.commit()
         except Exception:
             self.session.rollback()

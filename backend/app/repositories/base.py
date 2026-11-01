@@ -39,6 +39,11 @@ class BaseRepository(Generic[ModelT, CreateT, UpdateT]):
             .offset(offset)
             .limit(limit)
         )
+        if 'auth_scope' in self.session.info:
+            from app.api.auth_dependencies import scope_expression
+            clause = scope_expression(self.model, *self.session.info['auth_scope'])
+            if clause is not None:
+                statement = statement.where(clause)
         return list(self.session.scalars(statement).all())
 
     def update(self, entity_id: int, data: UpdateT) -> ModelT | None:

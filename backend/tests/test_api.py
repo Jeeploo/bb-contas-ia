@@ -60,6 +60,21 @@ class ApiTestCase(unittest.TestCase):
         previous_overrides = app.dependency_overrides.copy()
         self.addCleanup(self.restore_overrides, previous_overrides)
         app.dependency_overrides[get_db] = override_db
+        from app.api.auth_dependencies import authorize_request, get_current_user
+        from app.api.dependencies import get_contexto_operacional
+        from fastapi import HTTPException
+        from app.schemas.leitura_documental import ContextoDocumental
+        def legacy_context(id_usuario: int | None = None, id_prefixo: int | None = None):
+            if id_usuario is None:
+                if id_prefixo is not None:
+                    raise HTTPException(422, "Informe o usuário do contexto")
+                return None
+            if id_usuario <= 0 or (id_prefixo is not None and id_prefixo <= 0):
+                raise HTTPException(422, "Identificadores devem ser positivos")
+            return ContextoDocumental(id_usuario=id_usuario, id_prefixo=id_prefixo)
+        app.dependency_overrides[authorize_request] = lambda: None
+        app.dependency_overrides[get_current_user] = lambda: None
+        app.dependency_overrides[get_contexto_operacional] = legacy_context
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
 
@@ -296,7 +311,7 @@ class ApiTests(ApiTestCase):
         self.assertEqual(response.json(), {"status": "ok", "database": "connected"})
 
     def test_session_dependency_closes_without_managing_transactions(self):
-        with patch("app.api.dependencies.SessionLocal") as factory:
+        with patch("app.api.db_dependency.SessionLocal") as factory:
             session = factory.return_value.__enter__.return_value
             dependency = get_db()
             self.assertIs(next(dependency), session)
