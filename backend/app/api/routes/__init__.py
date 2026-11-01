@@ -42,3 +42,6 @@ router.include_router(aprovacao.router)
 
 router.include_router(perfil_processamento.router)
 router.include_router(item_extraido.router)
+
+from app.api.routes.contexto_documental import router as contexto_router
+router.include_router(contexto_router)

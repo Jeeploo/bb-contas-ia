@@ -73,3 +73,7 @@ class OcrExecutionError(DocumentError):
 
 class CalculationError(ValueError):
     """Configuração ou validação insuficiente para calcular."""
+
+
+class ContextoOperacionalError(ValueError):
+    """Contexto de operação ausente, ambíguo ou não autorizado."""

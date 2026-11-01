@@ -7,6 +7,7 @@ from app.services.base import BaseService
 
 
 class ContaConsumoService(BaseService[ContaConsumo, ContaConsumoCreate, ContaConsumoUpdate]):
+    revalida_contexto_documental = True
     repository_class = ContaConsumoRepository
     foreign_keys = {
         "id_prefixo": PrefixoRepository,

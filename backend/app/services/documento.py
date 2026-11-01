@@ -6,6 +6,7 @@ from app.services.base import BaseService
 
 
 class DocumentoService(BaseService[Documento, DocumentoCreate, DocumentoUpdate]):
+    revalida_contexto_documental = True
     repository_class = DocumentoRepository
     foreign_keys = {
         "id_conta": ContaConsumoRepository,

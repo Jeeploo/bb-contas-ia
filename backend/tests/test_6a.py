@@ -216,7 +216,8 @@ class SeedTests(test_mvp_flow.ApiTestCase):
         from io import StringIO
         resources = ['localidades', 'prefixos', 'concessionarias', 'contas_consumo',
                      'regras_calculo', 'perfis_processamento', 'itens_regra',
-                     'calculos', 'ordens_pagamento', 'usuarios', 'itens_pagamento']
+                     'calculos', 'ordens_pagamento', 'usuarios', 'itens_pagamento',
+                     'documentos', 'extracoes_inteligentes']
         with redirect_stdout(StringIO()):
             prepare(self.client, 'fixture')
             before = {r:self.client.get('/api/v1/'+r).json() for r in resources}
@@ -227,4 +228,7 @@ class SeedTests(test_mvp_flow.ApiTestCase):
         self.assertEqual({p['estrategia'] for p in after['perfis_processamento']},
                          {'COEFICIENTE', 'COMPOSICAO_DETALHADA', 'VALOR_INTEGRAL'})
         self.assertEqual(len(after['calculos']), 1)
-        self.assertEqual(self.client.get('/api/v1/documentos').json(), [])
+        self.assertEqual(len(after['documentos']), 12)
+        self.assertTrue(all(d['origem'] == 'DEMO estruturada sem IA' and d['formato'] == 'json'
+                            for d in after['documentos']))
+        self.assertEqual(len(after['extracoes_inteligentes']), 12)

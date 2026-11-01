@@ -26,19 +26,16 @@ class LocalDocumentStorage:
         return path
 
     def save(self, source: BinaryIO, filename: str, content_type: str) -> str:
-        if not filename.lower().endswith(".pdf") or content_type not in (
-            "application/pdf", "application/octet-stream",
-        ):
-            raise UnsupportedDocumentFormatError("Somente PDF é suportado")
+        from app.processing.arquivo_documental import mime_arquivo, validar_arquivo
+        mime = mime_arquivo(filename, content_type)
         # Leitura limitada antes de criar qualquer diretório ou arquivo.
         data = source.read(self.max_size + 1)
         if len(data) > self.max_size:
             raise DocumentTooLargeError("Documento excede o limite de tamanho")
         if not data:
             raise EmptyDocumentError("Arquivo vazio")
-        if not data.startswith(b"%PDF-"):
-            raise InvalidPdfError("Assinatura PDF inválida")
-        key = f"{uuid4().hex}.pdf"
+        validar_arquivo(data, mime)
+        key = f"{uuid4().hex}{Path(filename).suffix.lower()}"
         self.directory.mkdir(parents=True, exist_ok=True)
         path = self._path(key)
         try:

@@ -15,4 +15,4 @@ class ExtracaoInteligenteRepository(
             ExtracaoInteligente.id_documento == document_id,
             ExtracaoInteligente.situacao_validacao.in_(
                 ("processada", "requer_validacao", "validada", "pendente")),
-        ).order_by(ExtracaoInteligente.id_extracao)).first()
+        ).order_by(ExtracaoInteligente.id_extracao.desc())).first()

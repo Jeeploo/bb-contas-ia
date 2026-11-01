@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, get_contexto_operacional
 from app.schemas.calculo import CalculoRead
 from app.services.calculo_contextual import CalculoContextualService
 from app.schemas.documento import DocumentoRead
@@ -51,9 +51,9 @@ def delete(id: int, session: DatabaseSession):
 
 @router.post("/{id_conta}/documentos/upload", response_model=DocumentoRead,
              status_code=status.HTTP_201_CREATED)
-def upload_documento(id_conta: int, session: DatabaseSession, file: UploadFile):
+def upload_documento(id_conta: int, session: DatabaseSession, file: UploadFile, contexto=Depends(get_contexto_operacional)):
     return ProcessamentoDocumentoService(session).upload(
-        id_conta, file.file, file.filename or "", file.content_type or "")
+        id_conta, file.file, file.filename or "", file.content_type or "", contexto)
 
 
 

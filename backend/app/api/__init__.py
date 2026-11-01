@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from app.document_ai.base import DocumentAIError
 from fastapi.routing import APIRoute
 
 from app.services.exceptions import (
@@ -6,7 +7,7 @@ from app.services.exceptions import (
     PdfRenderingError, EmptyOcrError, OcrExecutionError,
     DocumentFileNotFoundError, InvalidPdfError, PdfWithoutTextError,
     UnsupportedDocumentFormatError, DocumentTooLargeError, EmptyDocumentError,
-    CalculationError,
+    CalculationError, ContextoOperacionalError,
     EntityNotFoundError, SelfApprovalNotAllowedError,
     InsufficientApprovalLimitError, ApprovalOrderChangeNotAllowedError,
 )
@@ -30,6 +31,10 @@ class EntityNotFoundRoute(APIRoute):
                          PdfWithoutTextError: 422, UnsupportedDocumentFormatError: 415,
                          DocumentTooLargeError: 413, EmptyDocumentError: 400}
                 raise HTTPException(status_code=codes[type(exc)], detail=str(exc)) from exc
+            except DocumentAIError as exc:
+                raise HTTPException(status_code=exc.http_status, detail={"codigo": exc.codigo}) from None
+            except ContextoOperacionalError as exc:
+                raise HTTPException(status_code=403, detail=str(exc)) from exc
             except CalculationError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
             except EntityNotFoundError as exc:

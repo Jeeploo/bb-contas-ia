@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.usuario_prefixo import UsuarioPrefixo
     from app.models.alcada import Alcada
     from app.models.aprovacao import Aprovacao
     from app.models.ordem_pagamento import OrdemPagamento
@@ -28,6 +29,9 @@ class Usuario(Base):
     id_prefixo: Mapped[int | None] = mapped_column(
         ForeignKey("prefixos.id_prefixo"), nullable=True
     )
+
+    vinculos_prefixos: Mapped[list["UsuarioPrefixo"]] = relationship(
+        "UsuarioPrefixo", back_populates="usuario", cascade="all, delete-orphan")
 
     alcada: Mapped[Alcada | None] = relationship(back_populates="usuarios")
     prefixo: Mapped[Prefixo | None] = relationship(back_populates="usuarios")

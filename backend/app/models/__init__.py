@@ -20,6 +20,8 @@ from app.models.perfil_processamento import PerfilProcessamento
 from app.models.item_extraido import ItemExtraido
 
 __all__ = [
+    "UsuarioPrefixo",
+    "UnidadeConsumidora",
     "PerfilProcessamento",
     "ItemExtraido",
     "Alcada",
@@ -40,3 +42,6 @@ __all__ = [
     "SistemaPagamento",
     "Usuario",
 ]
+
+from app.models.usuario_prefixo import UsuarioPrefixo
+from app.models.unidade_consumidora import UnidadeConsumidora

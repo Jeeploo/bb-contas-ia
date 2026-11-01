@@ -12,6 +12,10 @@ from app.main import app
 from app.models import Base
 
 
+EXTRACAO_DEFAULTS = dict(resultado_validacao_documental="EVIDENCIA_INSUFICIENTE",
+    motivo_validacao_documental=None, evidencias_validacao_documental={},
+    historico_validacao_documental=[], id_usuario_contexto=None, id_prefixo_contexto=None)
+
 LOCALIDADE = dict(codigo_localidade="TEST", estado="PE", municipio="Recife", regiao="Nordeste")
 ENTITIES = (
     ("localidades", "id_localidade", LOCALIDADE, {"municipio": "Olinda"}),
@@ -20,7 +24,7 @@ ENTITIES = (
     ("contas_consumo", "id_conta", dict(numero_conta="123", competencia="2026-10", data_emissao=None, data_vencimento="2026-10-20", valor_original="123.45", codigo_barras=None, consumo="10.500", unidade_consumo="kWh", categoria="energia", situacao="pendente", id_prefixo=1, id_concessionaria=1), {"situacao": "validada"}),
     ("documentos", "id_documento", dict(tipo_documento="fatura", formato="pdf", data_recebimento="2026-10-06T10:00:00", origem="manual", caminho_arquivo="contas/fatura.pdf", id_conta=1), {"caminho_arquivo": "contas/revisada.pdf"}),
     ("extracoes_inteligentes", "id_extracao", dict(data_processamento="2026-10-06T11:00:00", nivel_confianca="95.50", situacao_validacao="pendente", id_documento=1), {"situacao_validacao": "validada"}),
-    ("dados_extraidos", "id_dado_extraido", dict(campo_identificado="valor_original", valor_extraido="123.45", nivel_confianca="98.50", situacao_validacao="pendente", valor_validado=None, id_extracao=1), {"valor_validado": "123.45", "situacao_validacao": "validada"}),
+    ("dados_extraidos", "id_dado_extraido", dict(campo_identificado="valor_original", valor_extraido="123.45", nivel_confianca="98.50", situacao_validacao="pendente", valor_validado=None, id_extracao=1), {"situacao_validacao": "pendente"}),
     ("regras_calculo", "id_regra", dict(nome_regra="Regra teste", categoria="energia", versao="1", data_inicio_vigencia="2026-10-01", data_fim_vigencia=None, situacao="ativa"), {"nome_regra": "Regra revisada"}),
     ("itens_regra", "id_item_regra", dict(nome_item="Desconto", tipo_item="percentual", valor_percentual="5.000000", ordem_aplicacao=1, descricao=None, id_regra=1), {"ordem_aplicacao": 2}),
     ("calculos", "id_calculo", dict(data_calculo="2026-10-06T12:00:00", valor_inicial="123.45", valor_calculado="117.28", situacao="pendente", id_conta=1, id_regra=1), {"situacao": "validado"}),
@@ -79,6 +83,8 @@ class ApiTests(ApiTestCase):
                 created = self.client.post(url, json=payload)
                 self.assertEqual(created.status_code, 201, created.text)
                 expected = {**payload, id_field: created.json()[id_field]}
+                if resource == "extracoes_inteligentes":
+                    expected.update(EXTRACAO_DEFAULTS)
                 if resource == "itens_regra":
                     expected["obrigatorio"] = True
                 if resource == "calculos":
@@ -160,6 +166,10 @@ class ApiTests(ApiTestCase):
             ):
                 with self.subTest(resource=resource, field=field, method=method):
                     response = getattr(self.client, method)(target, json=data)
+                    if resource == "dados_extraidos" and method == "patch":
+                        self.assertEqual(response.status_code, 422, response.text)
+                        self.assertEqual(self.client.get(url).json(), before)
+                        continue
                     self.assertEqual(response.status_code, 404, response.text)
                     self.assertIn(entity, response.json()["detail"])
                     self.assertIn("999", response.json()["detail"])
@@ -176,6 +186,10 @@ class ApiTests(ApiTestCase):
                 url = f"/api/v1/{resource}/1"
                 before = self.client.get(url).json()
                 response = self.client.patch(url, json={field: None})
+                if resource == "dados_extraidos":
+                    self.assertEqual(response.status_code, 422, response.text)
+                    self.assertEqual(self.client.get(url).json(), before)
+                    continue
                 self.assertEqual(response.status_code, 200, response.text)
                 self.assertEqual(response.json(), {**before, field: None})
                 self.assertEqual(self.client.get(url).json(), response.json())

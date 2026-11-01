@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, get_contexto_operacional
+from app.schemas.leitura_inteligente import ProcessamentoInteligenteRead, TentativasLeituraRead
 from app.schemas.processamento_documento import ProcessamentoDocumentoRead
 from app.services.processamento_documento import ProcessamentoDocumentoService
 from app.schemas.documento import DocumentoCreate, DocumentoRead, DocumentoUpdate
@@ -48,5 +49,25 @@ def delete(id: int, session: DatabaseSession):
 
 
 @router.post("/{id_documento}/processar", response_model=ProcessamentoDocumentoRead)
-def processar(id_documento: int, session: DatabaseSession):
-    return ProcessamentoDocumentoService(session).processar(id_documento)
+def processar(id_documento: int, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    return ProcessamentoDocumentoService(session).processar(id_documento, contexto)
+
+
+@router.post("/{id_documento}/processar-inteligente", response_model=ProcessamentoInteligenteRead)
+def processar_inteligente(id_documento: int, session: DatabaseSession,
+                          reprocessar: bool = False, contexto=Depends(get_contexto_operacional)):
+    return ProcessamentoDocumentoService(session).processar_inteligente(
+        id_documento, contexto, reprocessar=reprocessar)
+
+
+@router.get("/{id_documento}/leituras-ia", response_model=TentativasLeituraRead)
+def tentativas_ia(id_documento: int, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.contexto_operacional import ContextoOperacionalService
+    from app.services.exceptions import ContextoOperacionalError
+    document = DocumentoService(session).get_by_id(id_documento)
+    if contexto is None:
+        raise ContextoOperacionalError('Consulta exige contexto de usuário')
+    prefix = ContextoOperacionalService(session).resolver(contexto.id_usuario, contexto.id_prefixo)
+    if prefix.id_prefixo != document.conta.id_prefixo:
+        raise ContextoOperacionalError('Prefixo não autorizado para a conta')
+    return {'tentativas': document.historico_leitura_ia}

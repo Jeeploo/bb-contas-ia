@@ -46,14 +46,20 @@ class ProcessamentoDocumentoService:
         self.fields = DadoExtraidoRepository(session)
 
     def upload(self, account_id: int, source: BinaryIO, filename: str,
-               content_type: str) -> Documento:
+               content_type: str, contexto=None) -> Documento:
         key = None
         try:
             if ContaConsumoRepository(self.session).get_by_id(account_id) is None:
                 raise EntityNotFoundError("ContaConsumo", account_id)
+            if contexto is not None:
+                from app.services.contexto_operacional import ContextoOperacionalService
+                from app.services.exceptions import ContextoOperacionalError
+                prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
+                if prefix.id_prefixo != ContaConsumoRepository(self.session).get_by_id(account_id).id_prefixo:
+                    raise ContextoOperacionalError("Prefixo não corresponde à conta")
             key = self.storage.save(source, filename, content_type)
             document = self.documents.create(DocumentoCreate(
-                tipo_documento="fatura", formato="pdf", origem="upload",
+                tipo_documento="fatura", formato=filename.rsplit(".", 1)[-1].lower(), origem="upload",
                 data_recebimento=datetime.now(timezone.utc).replace(tzinfo=None), caminho_arquivo=key,
                 id_conta=account_id))
             self.session.commit()
@@ -72,14 +78,26 @@ class ProcessamentoDocumentoService:
             confianca_geral=extraction.nivel_confianca,
             situacao=extraction.situacao_validacao)
 
-    def processar(self, document_id: int) -> ProcessamentoDocumentoRead:
+    def processar(self, document_id: int, contexto=None) -> ProcessamentoDocumentoRead:
         try:
             # Bloqueio de linha no PostgreSQL serializa cliques concorrentes.
             document = self.documents.get_for_processing(document_id)
             if document is None:
                 raise EntityNotFoundError("Documento", document_id)
+            if contexto is not None:
+                from app.services.contexto_operacional import ContextoOperacionalService
+                from app.services.exceptions import ContextoOperacionalError
+                prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
+                if prefix.id_prefixo != document.conta.id_prefixo:
+                    raise ContextoOperacionalError("Prefixo não corresponde à conta")
             existing = self.extractions.get_completed_for_document(document_id)
             if existing is not None:
+                if contexto is not None and (
+                    existing.id_usuario_contexto != contexto.id_usuario
+                    or existing.id_prefixo_contexto != prefix.id_prefixo
+                ):
+                    from app.services.validacao_documental import ValidacaoDocumentalService
+                    ValidacaoDocumentalService(self.session).revalidar(existing, contexto)
                 response = self._response(document, existing)
                 self.session.commit()
                 return response
@@ -119,9 +137,16 @@ class ProcessamentoDocumentoService:
             for item in items:
                 ItemExtraidoRepository(self.session).create(ItemExtraidoCreate(
                     id_extracao=extraction.id_extracao, **asdict(item)))
+            from app.services.validacao_documental import ValidacaoDocumentalService
+            ValidacaoDocumentalService(self.session).revalidar(extraction, contexto)
             response = self._response(document, extraction)
             self.session.commit()
             return response
         except Exception:
             self.session.rollback()
             raise
+
+    def processar_inteligente(self, document_id, contexto, provider=None, reprocessar=False):
+        from app.services.leitura_inteligente import LeituraInteligenteService
+        return LeituraInteligenteService(self.session, self.storage, provider).processar(
+            document_id, contexto, reprocessar=reprocessar)

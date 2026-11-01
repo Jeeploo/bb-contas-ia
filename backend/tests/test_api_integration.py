@@ -68,6 +68,8 @@ class ApiIntegrationTests(test_api.ApiTestCase):
             self.assertGreater(entity_id, 0)
             ids[resource] = entity_id
             expected_by_resource[resource] = {**payload, id_field: entity_id}
+            if resource == "extracoes_inteligentes":
+                expected_by_resource[resource].update(test_api.EXTRACAO_DEFAULTS)
             if resource == "itens_regra":
                 expected_by_resource[resource]["obrigatorio"] = True
             if resource == "calculos":
@@ -78,7 +80,7 @@ class ApiIntegrationTests(test_api.ApiTestCase):
         # Validação de um dado extraído sem perder sua ligação com a extração.
         changes = {"valor_validado": "123.45", "situacao_validacao": "validada"}
         updated = self.client.patch(
-            f"/api/v1/dados_extraidos/{ids['dados_extraidos']}", json=changes
+            f"/api/v1/dados_extraidos/{ids['dados_extraidos']}/validacao", json={"valor_validado": "123.45"}
         )
         self.assertEqual(updated.status_code, 200, updated.text)
         expected_by_resource["dados_extraidos"].update(changes)

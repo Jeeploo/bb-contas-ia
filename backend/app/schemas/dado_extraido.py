@@ -45,3 +45,9 @@ class DadoExtraidoValidacao(BaseModel):
         if isinstance(data, dict) and "valor_validado" in data and data["valor_validado"] is None:
             raise ValueError("Informe um valor válido ou omita o campo para confirmar o original")
         return data
+
+
+class DadoExtraidoPatch(BaseModel):
+    """Somente invalidação da revisão. Correções usam /validacao."""
+    model_config = ConfigDict(extra="forbid")
+    situacao_validacao: str = Field(default="pendente", pattern="^pendente$")

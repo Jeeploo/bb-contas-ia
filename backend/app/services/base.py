@@ -16,6 +16,15 @@ class BaseService(Generic[ModelT, CreateT, UpdateT]):
 
     repository_class: type[BaseRepository[ModelT, CreateT, UpdateT]]
     foreign_keys: dict[str, type[BaseRepository]] = {}
+    revalida_contexto_documental = False
+
+    def _validate_update(self, instance: ModelT, data: UpdateT) -> None:
+        """Hook para invariantes de domínio antes da escrita."""
+
+    def _after_write(self) -> None:
+        if self.revalida_contexto_documental:
+            from app.services.validacao_documental import revalidar_contextos
+            revalidar_contextos(self.session)
 
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -33,6 +42,7 @@ class BaseService(Generic[ModelT, CreateT, UpdateT]):
         try:
             self._validate_foreign_keys(data)
             instance = self.repository.create(data)
+            self._after_write()
             self.session.commit()
         except Exception:
             self.session.rollback()
@@ -50,11 +60,13 @@ class BaseService(Generic[ModelT, CreateT, UpdateT]):
 
     def update(self, entity_id: int, data: UpdateT) -> ModelT:
         try:
-            self.get_by_id(entity_id)
+            current = self.get_by_id(entity_id)
             self._validate_foreign_keys(data)
+            self._validate_update(current, data)
             instance = self.repository.update(entity_id, data)
             if instance is None:
                 raise EntityNotFoundError(self.repository.model.__name__, entity_id)
+            self._after_write()
             self.session.commit()
         except Exception:
             self.session.rollback()
@@ -65,6 +77,7 @@ class BaseService(Generic[ModelT, CreateT, UpdateT]):
         try:
             if not self.repository.delete(entity_id):
                 raise EntityNotFoundError(self.repository.model.__name__, entity_id)
+            self._after_write()
             self.session.commit()
         except Exception:
             self.session.rollback()

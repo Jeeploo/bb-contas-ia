@@ -17,6 +17,7 @@ class DadoExtraido(Base):
 
     id_dado_extraido: Mapped[int] = mapped_column(primary_key=True)
     campo_identificado: Mapped[str] = mapped_column(String, nullable=False)
+    valor_normalizado: Mapped[str | None] = mapped_column(Text, nullable=True)
     valor_extraido: Mapped[str | None] = mapped_column(Text, nullable=True)
     nivel_confianca: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     situacao_validacao: Mapped[str] = mapped_column(String, nullable=False)

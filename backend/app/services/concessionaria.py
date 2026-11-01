@@ -5,4 +5,5 @@ from app.services.base import BaseService
 
 
 class ConcessionariaService(BaseService[Concessionaria, ConcessionariaCreate, ConcessionariaUpdate]):
+    revalida_contexto_documental = True
     repository_class = ConcessionariaRepository

@@ -1,5 +1,12 @@
 # Demonstração ponta a ponta do MVP
 
+A estratégia atual de apresentação documental está em
+[DEMO_CONTROLADA.md](DEMO_CONTROLADA.md): Recife/Paulista, energia/água,
+vínculos multi-prefixo e fixtures estruturadas sem chamadas à IA. Preparar com
+`scripts/seed_demo.py --ambiente-demo`. O roteiro abaixo descreve o ensaio legado
+de OCR e governança, mantido para regressão; suas limitações de cálculo se
+referem àquele fluxo manual, não redefinem o motor já existente no projeto.
+
 O cenário usa Recife/PE, uma unidade e uma concessionária de energia fictícias,
 CNPJ composto por zeros, matrículas `DEMO-*` e código de barras com 44 zeros.
 Nenhum desses dados representa uma conta ou um pagamento real.
@@ -10,7 +17,9 @@ em diretório temporário. O PDF de uma página é gerado em memória pelo helpe
 existente em `test_processamento_documento.py`; contém aviso de demonstração,
 competência 10/2026, vencimento 20/10/2026, R$ 123,45, consumo 100,500 kWh e código
 fictício. Banco e arquivos são descartados ao terminar. Conexões de rede são
-bloqueadas durante o cenário. Não há seed nem execução automática em produção.
+bloqueadas durante o cenário. Os testes não populam o PostgreSQL local nem executam preparação automática.
+Para a apresentação humana, veja [DEMO_ROTEIRO.md](../DEMO_ROTEIRO.md) e o seed
+manual `scripts/seed_demo.py`, que consome a API real.
 
 ## Etapas e endpoints
 
@@ -55,8 +64,9 @@ Os testes existentes em `test_ocr.py` mantêm a demonstração de OCR real com P
 rasterizado. A suíte completa requer Tesseract e idiomas locais, conforme
 [FLUXO_DOCUMENTOS.md](FLUXO_DOCUMENTOS.md).
 
-O próprio teste serve como demonstração repetível para a equipe; não foi criado
-um segundo script que duplicaria a orquestração.
+O teste mantém a verificação repetível e isolada. O seed manual prepara somente
+cadastros fictícios para a apresentação; upload, processamento, revisão e aprovação
+continuam sendo ações explícitas da pessoa no desktop.
 
 ## Limitações atuais
 

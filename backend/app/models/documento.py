@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, JSON, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 class Documento(Base):
     __tablename__ = "documentos"
+
+    historico_leitura_ia: Mapped[list] = mapped_column(JSON, default=list, server_default=text("'[]'"))
 
     id_documento: Mapped[int] = mapped_column(primary_key=True)
     tipo_documento: Mapped[str] = mapped_column(String, nullable=False)

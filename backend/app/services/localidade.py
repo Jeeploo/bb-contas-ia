@@ -5,4 +5,5 @@ from app.services.base import BaseService
 
 
 class LocalidadeService(BaseService[Localidade, LocalidadeCreate, LocalidadeUpdate]):
+    revalida_contexto_documental = True
     repository_class = LocalidadeRepository

@@ -1,0 +1,220 @@
+[
+  {
+    "nome": "energia-recife",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "VALIDO",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "unidade_consumidora": "UC-REC-ENERGIA-DEMO-001",
+      "municipio": "Recife",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "energia-paulista",
+    "usuario": "maker-paulista",
+    "prefixo": "PAU-DEMO",
+    "esperado": "VALIDO",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "unidade_consumidora": "UC-PAU-ENERGIA-DEMO-001",
+      "municipio": "Paulista",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "agua-recife",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "VALIDO",
+    "leitura": {
+      "tipo_documento": "CONTA_AGUA",
+      "concessionaria": "AGUA DEMO PE",
+      "unidade_consumidora": "UC-REC-AGUA-DEMO-001",
+      "municipio": "Recife",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_m3": "10",
+      "tarifa_agua": "80.00",
+      "tarifa_esgoto": "43.45"
+    }
+  },
+  {
+    "nome": "agua-paulista",
+    "usuario": "maker-paulista",
+    "prefixo": "PAU-DEMO",
+    "esperado": "VALIDO",
+    "leitura": {
+      "tipo_documento": "CONTA_AGUA",
+      "concessionaria": "AGUA DEMO PE",
+      "unidade_consumidora": "UC-PAU-AGUA-DEMO-001",
+      "municipio": "Paulista",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_m3": "10",
+      "tarifa_agua": "80.00",
+      "tarifa_esgoto": "43.45"
+    }
+  },
+  {
+    "nome": "prefixo-errado",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "DIVERGENCIA_PREFIXO",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "unidade_consumidora": "UC-PAU-ENERGIA-DEMO-001",
+      "municipio": "Paulista",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "outra-uf",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "REGIAO_NAO_SUPORTADA",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "unidade_consumidora": "UC-REC-ENERGIA-DEMO-001",
+      "municipio": "Recife",
+      "uf": "BA",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "documento-incorreto",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "DOCUMENTO_NAO_SUPORTADO",
+    "leitura": {
+      "tipo_documento": "BOLETO",
+      "uf": "PE"
+    }
+  },
+  {
+    "nome": "evidencia-insuficiente",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "EVIDENCIA_INSUFICIENTE",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "municipio": "Recife",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "unidade-outro-prefixo",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "DIVERGENCIA_PREFIXO",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "unidade_consumidora": "UC-PAU-ENERGIA-DEMO-001",
+      "municipio": "Recife",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "concessionaria-desconhecida",
+    "usuario": "maker",
+    "prefixo": "REC-DEMO",
+    "esperado": "EVIDENCIA_INSUFICIENTE",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "EMPRESA DESCONHECIDA DEMO",
+      "unidade_consumidora": "UC-REC-ENERGIA-DEMO-001",
+      "municipio": "Recife",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "multi-recife",
+    "usuario": "maker-multi",
+    "prefixo": "REC-DEMO",
+    "esperado": "VALIDO",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "unidade_consumidora": "UC-REC-ENERGIA-DEMO-001",
+      "municipio": "Recife",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  },
+  {
+    "nome": "multi-paulista",
+    "usuario": "maker-multi",
+    "prefixo": "PAU-DEMO",
+    "esperado": "VALIDO",
+    "leitura": {
+      "tipo_documento": "CONTA_ENERGIA",
+      "concessionaria": "ENERGIA DEMO PE",
+      "unidade_consumidora": "UC-PAU-ENERGIA-DEMO-001",
+      "municipio": "Paulista",
+      "uf": "PE",
+      "competencia": "2026-10",
+      "data_vencimento": "2026-10-20",
+      "valor_total": "123.45",
+      "consumo_kwh": "100",
+      "tusd": "60.00",
+      "te": "63.45"
+    }
+  }
+]

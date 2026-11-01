@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api import EntityNotFoundRoute
 from app.api.dependencies import get_db
-from app.schemas.dado_extraido import DadoExtraidoValidacao
+from app.schemas.dado_extraido import DadoExtraidoValidacao, DadoExtraidoPatch
 from app.schemas.dado_extraido import DadoExtraidoCreate, DadoExtraidoRead, DadoExtraidoUpdate
 from app.services.dado_extraido import DadoExtraidoService
 
@@ -36,7 +36,7 @@ def get_by_id(id: int, session: DatabaseSession):
 
 
 @router.patch("/{id}", response_model=DadoExtraidoRead)
-def update(id: int, data: DadoExtraidoUpdate, session: DatabaseSession):
+def update(id: int, data: DadoExtraidoPatch, session: DatabaseSession):
     return DadoExtraidoService(session).update(id, data)
 
 

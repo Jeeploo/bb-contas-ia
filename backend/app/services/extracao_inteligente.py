@@ -6,6 +6,7 @@ from app.services.base import BaseService
 
 
 class ExtracaoInteligenteService(BaseService[ExtracaoInteligente, ExtracaoInteligenteCreate, ExtracaoInteligenteUpdate]):
+    revalida_contexto_documental = True
     repository_class = ExtracaoInteligenteRepository
     foreign_keys = {
         "id_documento": DocumentoRepository,
