@@ -1,6 +1,6 @@
 """Administração cadastral e entrada estruturada; sem autenticação nesta etapa."""
 from typing import Annotated
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.api import EntityNotFoundRoute
@@ -50,15 +50,20 @@ def registrar_interpretacao(id_documento: int, leitura: LeituraDocumental, sessi
     return InterpretacaoDocumentalService(session).registrar(id_documento, leitura, contexto)
 
 
+@router.post("/extracoes_inteligentes/{id_extracao}/enviar-validacao", response_model=ExtracaoInteligenteRead)
 @router.post("/extracoes_inteligentes/{id_extracao}/revalidar", response_model=ExtracaoInteligenteRead)
-def revalidar(id_extracao: int, session: DB, contexto: ContextoDocumental | None = None, operacional=Depends(get_contexto_operacional)):
+def revalidar(id_extracao: int, session: DB, request: Request, contexto: ContextoDocumental | None = None, operacional=Depends(get_contexto_operacional)):
     contexto = operacional if operacional is not None else contexto
     try:
         extraction = session.scalar(select(ExtracaoInteligente).where(
             ExtracaoInteligente.id_extracao == id_extracao).with_for_update())
         if extraction is None:
             raise EntityNotFoundError("ExtracaoInteligente", id_extracao)
-        ValidacaoDocumentalService(session).revalidar(extraction, contexto)
+        if request.url.path.endswith("/enviar-validacao"):
+            from app.services.validacao_documental import encaminhar_revisao
+            encaminhar_revisao(session, extraction, contexto)
+        else:
+            ValidacaoDocumentalService(session).revalidar(extraction, contexto)
         from app.services.conta_consumo import ContaConsumoService
         ContaConsumoService(session).criar_da_leitura(extraction)
         session.commit()

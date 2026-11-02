@@ -21,6 +21,10 @@ class CalculoContextualService:
                     ExtracaoInteligente.data_processamento.desc(), ExtracaoInteligente.id_extracao.desc())).first()
             if extraction is None:
                 raise CalculationError("Conta sem extração; processe e valide o documento")
+            # Encaminhamento para revisão não autoriza cálculo definitivo.
+            if extraction.id_usuario_contexto is not None and any(p.get("bloqueia_calculo", True) for p in
+                   (extraction.evidencias_validacao_documental or {}).get("pendencias", [])):
+                raise CalculationError("Documento com pendências; resolva a revisão cadastral/documental antes do cálculo")
             fields = {}
             for field in extraction.dados_extraidos:
                 if field.campo_identificado in fields:

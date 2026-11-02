@@ -10,13 +10,14 @@ const fs = require('node:fs');
  const fields=[['valor_original','276.34'],['competencia','2026-10'],['data_vencimento','2026-11-10'],['codigo_barras','83620000002776340048100000000000000000000000'],['consumo','245']].map(([campo_identificado,valor_extraido],i)=>({id_dado_extraido:i+1,campo_identificado,valor_extraido,valor_validado:null,situacao_validacao:'pendente',id_extracao:1}));
  let signedIn=false;
  const auth={usuario:{id_usuario:1,nome:'Operador DEMO',funcao:'maker',matricula:'DEMO-maker'},prefixos:[{id_prefixo:1,codigo_prefixo:'REC-DEMO',nome:'Recife'}],id_prefixo_ativo:1,id_prefixo_principal:1,expira_em:'2099-01-01'};
- const doc={id_documento:1,id_conta:1};const extraction={id_extracao:1,resultado_validacao_documental:'VALIDO'};
+ const doc={id_documento:1,id_conta:1};const extraction={id_extracao:1,resultado_validacao_documental:'VALIDO',permite_envio_validacao:true,bloqueia_calculo:false,pendencias:[]};
  const calculation={id_calculo:12,id_conta:1,valor_inicial:'276.34',valor_calculado:'276.34',data_calculo:'2026-10-29T15:00:00',situacao:'validado',memoria_calculo:null};
  await page.route('**/api/v1/**',async route=>{
   const req=route.request(), url=new URL(req.url()), p=url.pathname.replace('/api/v1/',''); let data=[];
   if(p==='auth/sessao'){if(!signedIn)return route.fulfill({status:401,json:{detail:'Sem sessão'}});data=auth;}
   else if(p==='auth/login'){signedIn=true;data=auth;}
   else if(p==='documentos')data=[doc];
+  else if(p.endsWith('/revalidar') || p.endsWith('/enviar-validacao')) data=extraction;
   else if(p==='extracoes_inteligentes')data=[extraction];
   else if(p==='contas_consumo') data=[account];
   else if(p==='prefixos') data=[{id_prefixo:1,codigo_prefixo:'9090',nome:'Agência demonstrativa'}];

@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
       const page = await browser.newPage();
       const fields = Object.entries({ tipo_documento:'CONTA_ENERGIA', competencia:'09/2026', valor_original:'736,53', data_vencimento:'2026-10-20', concessionaria:'Companhia Energética de Pernambuco', unidade_consumidora:'1234-78', codigo_barras:'8'.repeat(48), consumo:'523', unidade_consumo:'kWh', municipio:'Paulista', uf:'PE' }).map(([campo_identificado, valor_extraido], i) => ({ id_dado_extraido:i+1, campo_identificado, valor_extraido, valor_normalizado:campo_identificado === 'competencia' ? '2026-09' : campo_identificado === 'valor_original' ? '736.53' : valor_extraido, valor_validado:null, situacao_validacao:'pendente' }));
       const documento = { id_documento:10, id_conta:null };
-      const extracao = { id_extracao:20, resultado_validacao_documental:'VALIDO', evidencias_validacao_documental:{id_concessionaria:2} };
+      const extracao = { id_extracao:20, resultado_validacao_documental:'VALIDO', permite_envio_validacao:true, bloqueia_calculo:false, pendencias:[], evidencias_validacao_documental:{id_concessionaria:2} };
       let uploads=0, reads=0, validatedCompetencia, signedIn=false;
       const auth={usuario:{id_usuario:1,nome:'Operador',matricula:'DEMO-maker',funcao:'maker'},prefixos:[1,...(multiple?[2]:[])].map(id=>({id_prefixo:id,codigo_prefixo:id===1?'PAU-DEMO':'OUTRO',nome:'Paulista'})),id_prefixo_ativo:multiple?null:1,id_prefixo_principal:1,expira_em:'2099-01-01'};
       await page.route('**/api/v1/**', async route => {
@@ -26,6 +26,7 @@ const assert = require('node:assert/strict');
           Object.assign(field, req.postDataJSON(), {situacao_validacao:'validada'}); data=field;
           if(field.campo_identificado==='competencia') validatedCompetencia=field.valor_validado;
         }
+        else if(p.endsWith('/revalidar') || p.endsWith('/enviar-validacao')) data=extracao;
         else if(p==='extracoes_inteligentes') data=[extracao];
         else if(p==='documentos') data=[documento];
         else throw Error('Endpoint inesperado: '+p);

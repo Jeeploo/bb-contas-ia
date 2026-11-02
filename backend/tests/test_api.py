@@ -12,7 +12,7 @@ from app.main import app
 from app.models import Base
 
 
-EXTRACAO_DEFAULTS = dict(resultado_validacao_documental="EVIDENCIA_INSUFICIENTE",
+EXTRACAO_DEFAULTS = dict(pendencias=[], permite_envio_validacao=False, bloqueia_calculo=True, resultado_validacao_documental="EVIDENCIA_INSUFICIENTE",
     motivo_validacao_documental=None, evidencias_validacao_documental={},
     historico_validacao_documental=[], id_usuario_contexto=None, id_prefixo_contexto=None)
 

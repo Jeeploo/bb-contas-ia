@@ -1,3 +1,4 @@
+import { Alert, DocumentaryAlerts, canSubmitReview } from "../components/payment/DocumentaryAlerts";
 import { ValidationSummary } from "../components/payment/ValidationSummary";
 import { useAuth } from "../auth/AuthContext";
 import { useState } from "react";
@@ -17,7 +18,6 @@ import {
   ConfirmationCard,
   CalculationSummary,
   labels,
-  documentaryMessages,
   itemLabels,
 } from "../components/payment/InvoiceSummary";
 import type { ProcessamentoDocumento, Calculo, Documento } from "../types";
@@ -33,7 +33,6 @@ export function PaymentJourney() {
   const [editing, setEditing] = useState(false);
   const prefixos = session?.prefixos ?? [];
   const selectedPrefix = prefixos.find(p=>p.id_prefixo === session?.id_prefixo_ativo);
-  const accountId = result?.documento.id_conta;
   async function process() {
     if (!file || !selectedPrefix || changingPrefix) return;
     setError("");
@@ -42,6 +41,7 @@ export function PaymentJourney() {
       const uploaded = doc ?? (await api.uploadInicial(file));
       setDoc(uploaded);
       const response = await api.processarInteligente(uploaded.id_documento);
+      response.extracao = await api.revalidarExtracao(response.extracao.id_extracao);
       setResult(response);
       setCalculo(undefined);
       setStep(2);
@@ -103,10 +103,9 @@ export function PaymentJourney() {
       setResult(reviewed);
       setEditing(false);
       if (!values) {
-        if (!reviewed.documento.id_conta || reviewed.extracao.resultado_validacao_documental !== "VALIDO") {
-          setError("Confira a validação cadastral antes de continuar. O documento permanece em revisão.");
-          return;
-        }
+        const encaminhada = await api.enviarValidacao(reviewed.extracao.id_extracao);
+        setResult({ ...reviewed, extracao: encaminhada });
+        if (encaminhada.bloqueia_calculo || !reviewed.documento.id_conta) return;
         setCalculo(await api.calcular(reviewed.documento.id_conta));
         setStep(3);
       }
@@ -152,9 +151,7 @@ export function PaymentJourney() {
       </div>
       <PaymentStepper step={step} />
       {error && !editing && (
-        <div className="notice error" role="alert">
-          {error}
-        </div>
+        <Alert variant="error">{error}</Alert>
       )}
       {step === 1 &&
         (busy ? (
@@ -210,8 +207,8 @@ export function PaymentJourney() {
                   legíveis.
                 </p>
               )}
-              <p className="notice" role="status">{documentaryMessages[result.extracao.resultado_validacao_documental ?? "EVIDENCIA_INSUFICIENTE"]}</p>
-              <p>Correspondência cadastral da concessionária: {result.extracao.evidencias_validacao_documental?.id_concessionaria ? "encontrada" : "não encontrada — revisão necessária"}</p>
+              {result.extracao.situacao_validacao === "revisao_cadastral_pendente" && <Alert variant="info"><strong>Documento enviado para validação</strong><p>Revisão cadastral pendente. O cálculo definitivo permanece bloqueado.</p></Alert>}
+              <DocumentaryAlerts confirmado={result.campos_encontrados.every(f => f.situacao_validacao === "validada")} extracao={result.extracao} concessionaria={fields.find(f => f.label === "Concessionária")?.value} />
               {result.itens_encontrados.length > 0 && (
                 <details>
                   <summary>
@@ -235,10 +232,10 @@ export function PaymentJourney() {
             </button>
             <button
               className="primary"
-              disabled={busy || !result.campos_encontrados.length || !accountId || result.extracao.resultado_validacao_documental !== "VALIDO"}
+              disabled={busy || !result.campos_encontrados.length || !canSubmitReview(result.extracao) || result.extracao.situacao_validacao === "revisao_cadastral_pendente"}
               onClick={() => void validate()}
             >
-              {busy ? "Validando e calculando…" : "Enviar para validação"}
+              {busy ? "Enviando para validação…" : result.extracao.situacao_validacao === "revisao_cadastral_pendente" ? "Enviado para validação" : "Enviar para validação"}
             </button>
           </div>
         </section>

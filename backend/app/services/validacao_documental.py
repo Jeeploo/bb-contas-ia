@@ -1,6 +1,9 @@
 """Decisão determinística. Valores do cadastro nunca substituem evidências ausentes."""
 from datetime import datetime, timezone
 import unicodedata
+import re
+from datetime import date
+from decimal import Decimal, InvalidOperation
 from sqlalchemy import select
 from app.core.config import settings
 from app.models import ExtracaoInteligente, Concessionaria, UnidadeConsumidora
@@ -26,8 +29,39 @@ class ValidacaoDocumentalService:
     def avaliar(self, dados, id_usuario=None, id_prefixo=None, id_prefixo_conta=None):
         e = dict(dados_identificados=dict(dados), id_usuario=id_usuario,
                  id_prefixo_solicitado=id_prefixo, uf_mvp=settings.uf_mvp,
-                 versao_validador=1)
-        def result(status, reason):
+                 versao_validador=2)
+        def result(status, reason, tipo=None):
+            pendencias = []
+            if status != R.VALIDO:
+                pendencias.append(dict(tipo=tipo or status.value, mensagem=reason,
+                    bloqueia_envio_validacao=tipo != "CORRESPONDENCIA_CONCESSIONARIA",
+                    bloqueia_calculo=True))
+            # Verificar todos os mínimos, mesmo quando a decisão cadastral retorna antes.
+            for campo in ("tipo_documento", "uf", "municipio", "concessionaria", "unidade_consumidora",
+                          "competencia", "data_vencimento", "valor_original"):
+                if not str(dados.get(campo) if dados.get(campo) is not None else "").strip():
+                    pendencias.append(dict(tipo="CAMPO_OBRIGATORIO", campo=campo,
+                        mensagem=f"Campo documental obrigatório ausente: {campo}",
+                        bloqueia_envio_validacao=True, bloqueia_calculo=True))
+            for campo in ("competencia", "data_vencimento", "valor_original"):
+                value = dados.get(campo)
+                if value is None or str(value).strip() == "":
+                    continue
+                try:
+                    if campo == "competencia":
+                        if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", str(value)):
+                            raise ValueError()
+                    elif campo == "data_vencimento":
+                        date.fromisoformat(str(value))
+                    else:
+                        amount = Decimal(str(value))
+                        if not amount.is_finite() or amount < 0:
+                            raise ValueError()
+                except (ValueError, InvalidOperation):
+                    pendencias.append(dict(tipo="CAMPO_INVALIDO", campo=campo,
+                        mensagem=f"Campo documental inválido: {campo}",
+                        bloqueia_envio_validacao=True, bloqueia_calculo=True))
+            e["pendencias"] = pendencias
             return status.value, reason, e
         tipo = normalizar(dados.get("tipo_documento"))
         if not tipo or tipo in {"DESCONHECIDO", "INDETERMINADO", "FATURA", "CONTA_CONSUMO"}:
@@ -64,7 +98,7 @@ class ValidacaoDocumentalService:
         matches = [c for c in self.session.scalars(select(Concessionaria))
                    if nome in {normalizar(c.cnpj), normalizar(c.razao_social), normalizar(c.nome_fantasia)}]
         if len(matches) != 1:
-            return result(R.EVIDENCIA_INSUFICIENTE, "Concessionária sem correspondência cadastral unívoca")
+            return result(R.EVIDENCIA_INSUFICIENTE, "Concessionária sem correspondência cadastral", "CORRESPONDENCIA_CONCESSIONARIA")
         concessionaria = matches[0]
         e["id_concessionaria"] = concessionaria.id_concessionaria
         if normalizar(concessionaria.tipo_servico) != normalizar(service):
@@ -102,6 +136,7 @@ class ValidacaoDocumentalService:
         status, reason, evidence = self.avaliar(dados, extraction.id_usuario_contexto,
             extraction.id_prefixo_contexto, extraction.documento.conta.id_prefixo if extraction.documento.conta else extraction.documento.id_prefixo_contexto)
         if duplicated:
+            evidence["pendencias"].append(dict(tipo="CAMPOS_DUPLICADOS", mensagem="Campos duplicados na extração", bloqueia_envio_validacao=True, bloqueia_calculo=True))
             status, reason = R.EVIDENCIA_INSUFICIENTE.value, "Campos duplicados na extração"
         evidence["origens"] = {f.campo_identificado: {"id_dado_extraido": f.id_dado_extraido,
             "valor_extraido": f.valor_extraido, "valor_normalizado": f.valor_normalizado, "valor_validado": f.valor_validado,
@@ -120,3 +155,28 @@ def revalidar_contextos(session):
             ExtracaoInteligente.id_usuario_contexto.is_not(None)).with_for_update()).all():
         session.expire(extraction, ["dados_extraidos", "documento"])
         ValidacaoDocumentalService(session).revalidar(extraction)
+
+
+def politica_revisao(extraction):
+    """Falha fechada para extrações antigas, até revalidação determinística."""
+    pendencias = (extraction.evidencias_validacao_documental or {}).get("pendencias")
+    permite = pendencias is not None and not any(p["bloqueia_envio_validacao"] for p in pendencias)
+    return dict(pendencias=pendencias or [], permite_envio_validacao=permite,
+                bloqueia_calculo=extraction.resultado_validacao_documental != "VALIDO" or bool(pendencias))
+
+
+def encaminhar_revisao(session, extraction, contexto=None):
+    from app.services.exceptions import ContextoOperacionalError
+    service = ValidacaoDocumentalService(session)
+    service.revalidar(extraction, contexto)
+    if not politica_revisao(extraction)["permite_envio_validacao"]:
+        raise ContextoOperacionalError("Documento possui pendências que impedem o envio para validação")
+    if any(f.situacao_validacao != "validada" for f in extraction.dados_extraidos):
+        raise ContextoOperacionalError("Confirme os dados documentais antes de enviar")
+    extraction.situacao_validacao = ("revisao_cadastral_pendente"
+        if extraction.resultado_validacao_documental != "VALIDO" else "validada")
+    extraction.historico_validacao_documental = [*extraction.historico_validacao_documental,
+        dict(evento="ENVIADO_PARA_VALIDACAO", data=datetime.now(timezone.utc).isoformat(),
+             situacao=extraction.situacao_validacao)]
+    session.flush()
+    return extraction

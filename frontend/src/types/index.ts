@@ -23,7 +23,17 @@ export interface Documento {
     caminho_arquivo: string;
     id_conta: number | null;
 }
+export interface PendenciaDocumental {
+    tipo: string;
+    mensagem: string;
+    campo?: string;
+    bloqueia_envio_validacao: boolean;
+    bloqueia_calculo: boolean;
+}
 export interface ExtracaoInteligente {
+    pendencias?: PendenciaDocumental[];
+    permite_envio_validacao?: boolean;
+    bloqueia_calculo?: boolean;
     resultado_validacao_documental?: string;
     motivo_validacao_documental?: string;
     evidencias_validacao_documental?: Record<string, unknown>;

@@ -67,7 +67,7 @@ async def authorize_request(request: Request, user=Depends(get_current_user), se
             or (len(parts) == 3 and (
                 parts[0] == 'documentos' and parts[2] in {'processar', 'processar-inteligente', 'interpretacao'}
                 or parts[0] == 'contas_consumo' and parts[2] == 'calcular'
-                or parts[0] == 'extracoes_inteligentes' and parts[2] == 'revalidar'))
+                or parts[0] == 'extracoes_inteligentes' and parts[2] in {'revalidar', 'enviar-validacao'}))
             or len(parts) == 4 and parts[0] == 'contas_consumo' and parts[2:] == ['documentos', 'upload'])
     ) or (request.method == 'PATCH' and len(parts) == 3 and parts[0] in {'dados_extraidos', 'itens_extraidos'} and parts[2] == 'validacao')
     if not allowed:

@@ -724,3 +724,11 @@ main { padding-top: 20px; }
 .summary-content .hint { margin-top: 8px; }
 .summary-card .actions { margin-top: 10px; padding-top: 10px; }
 .document-preview .preview-caption { display: block; font-size: 10px; margin: 0; }
+
+.documentary-alert { display: flex; align-items: flex-start; gap: .65rem; padding: 1rem; border: 1px solid; border-radius: 8px; margin: .8rem 0; }
+.documentary-alert > svg { flex-shrink: 0; margin-top: .15rem; }
+.documentary-alert p { margin: .45rem 0 0; color: inherit; }
+.documentary-alert-info { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+.documentary-alert-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.documentary-alert-review { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.documentary-alert-error { background: #fee2e2; border-color: #ef4444; color: #991b1b; }

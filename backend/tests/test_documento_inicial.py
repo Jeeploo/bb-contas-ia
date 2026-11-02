@@ -115,3 +115,53 @@ class DocumentoInicialTests(ApiTestCase):
         self.assertEqual(response.status_code,200,response.text)
         self.assertEqual(response.json()['valor_extraido'],'09/2026')
         self.assertEqual(response.json()['valor_validado'],'2026-09')
+
+    def test_envio_cadastral_preserva_documento_e_bloqueio_calculo(self):
+        nome = 'COMPANHIA ENERGÉTICA DE PERNAMBUCO'
+        self.configure(concessionaria=nome)
+        result = self.processar(self.upload()).json()
+        ext = result['extracao']
+        self.assertTrue(ext['permite_envio_validacao'])
+        self.assertEqual(ext['pendencias'][0]['tipo'], 'CORRESPONDENCIA_CONCESSIONARIA')
+        for field in result['campos_encontrados']:
+            response = self.client.patch(f"/api/v1/dados_extraidos/{field['id_dado_extraido']}/validacao", json={})
+            self.assertEqual(response.status_code, 200, response.text)
+        response = self.client.post(f"/api/v1/extracoes_inteligentes/{ext['id_extracao']}/enviar-validacao")
+        self.assertEqual(response.status_code, 200, response.text)
+        sent = response.json()
+        self.assertEqual(sent['situacao_validacao'], 'revisao_cadastral_pendente')
+        self.assertEqual(sent['resultado_validacao_documental'], 'EVIDENCIA_INSUFICIENTE')
+        self.assertTrue(sent['bloqueia_calculo'])
+        self.assertIsNone(sent['evidencias_validacao_documental'].get('id_concessionaria'))
+        self.assertEqual(sent['historico_validacao_documental'][-1]['evento'], 'ENVIADO_PARA_VALIDACAO')
+        fields = self.client.get('/api/v1/dados_extraidos').json()
+        field = next(f for f in fields if f['id_extracao']==ext['id_extracao'] and f['campo_identificado']=='concessionaria')
+        self.assertEqual(field['valor_extraido'], nome)
+        self.assertEqual(field['valor_validado'], nome)
+        doc = self.client.get(f"/api/v1/documentos/{result['documento']['id_documento']}").json()
+        self.assertIsNone(doc['id_conta'])
+        self.provider.interpretar_documento.assert_called_once()
+        # Mesmo um documento ligado a conta preexistente não libera o cálculo.
+        self.client.patch(f"/api/v1/documentos/{doc['id_documento']}", json={'id_conta':1})
+        calculation = self.client.post('/api/v1/contas_consumo/1/calcular')
+        self.assertEqual(calculation.status_code, 422, calculation.text)
+        self.assertIn('pendências', calculation.json()['detail'])
+
+    def test_envio_bloqueado_por_impedimentos_documentais(self):
+        for changes in ({'tipo_documento':'OUTRO'}, {'uf':'SP'},
+                        {'concessionaria':'Sem cadastro', 'unidade_consumidora':None},
+                        {'concessionaria':'Sem cadastro', 'valor_total':None},
+                        {'concessionaria':'Sem cadastro', 'competencia':None}):
+            with self.subTest(changes=changes):
+                self.configure(**changes)
+                ext = self.processar(self.upload()).json()['extracao']
+                self.assertFalse(ext['permite_envio_validacao'])
+                response = self.client.post(f"/api/v1/extracoes_inteligentes/{ext['id_extracao']}/enviar-validacao")
+                self.assertEqual(response.status_code, 403, response.text)
+
+    def test_envio_exige_confirmacao_documental(self):
+        self.configure(concessionaria='Sem cadastro')
+        ext = self.processar(self.upload()).json()['extracao']
+        response = self.client.post(f"/api/v1/extracoes_inteligentes/{ext['id_extracao']}/enviar-validacao")
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('Confirme os dados', response.json()['detail'])
