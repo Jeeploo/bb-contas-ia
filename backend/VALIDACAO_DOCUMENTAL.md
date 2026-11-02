@@ -207,3 +207,54 @@ backend foram preservadas; não integram esta implementação.
 - Definir limites de confiança e revisão para evidências de leitura automática.
 - Definir quando ativar a trava documental do cálculo e sua transição para contas legadas.
 - Definir retenção/escala do histórico e casos de transferência/compartilhamento de instalação.
+
+## Associação de concessionária e aliases
+
+A migration aditiva `f52a90b134cd` (após `e61d4b902f30`) cria
+`concessionaria_aliases` e acrescenta `concessionarias.ativo`, inicialmente verdadeiro
+para preservar os cadastros existentes. Aliases contêm FK, nome original, nome
+normalizado, atividade e data de criação. A constraint única por concessionária e
+nome normalizado impede duplicação; um índice suporta busca pelo nome.
+
+A normalização remove acentos, converte para maiúsculas, remove pontos de
+abreviação (`S.A.` → `SA`), troca os demais sinais por espaços e compacta espaços.
+A busca reúne correspondências exatas de razão social, nome fantasia/CNPJ e
+aliases ativos, deduplicando por ID. Mais de uma concessionária candidata exige
+revisão humana, inclusive quando um nome oficial conflita com um alias. Não há
+fuzzy matching, seed de aliases ou criação de concessionárias pela IA.
+
+`GET /api/v1/concessionarias/elegiveis/associacao` retorna somente ID, nome e
+atividade dos registros ativos. `POST /api/v1/extracoes_inteligentes/{id}/resolver-concessionaria`
+aceita somente `id_concessionaria`. Usa sessão autenticada, vínculo ativo ao
+prefixo e escopo do registro, conforme a autorização documental existente; não
+introduz papéis novos. IDs de usuário no payload são recusados.
+
+A associação só aceita extração em `revisao_cadastral_pendente` e concessionária
+ativa existente. Na mesma transação, registra/reutiliza o alias e acrescenta evento
+`CONCESSIONARIA_ASSOCIADA` ao histórico da extração, com identidade da sessão,
+horário, IDs de documento/extração/concessionária e nome extraído. A escolha manual
+fica restrita àquela extração e ao nome normalizado confirmado; mudanças no nome
+invalidam essa escolha. Aliases conflitantes continuam exigindo revisão nos
+próximos documentos. Resoluções automáticas registram origem `nome`/`alias` e
+`automatica` nas evidências/histórico já existentes.
+
+`ValidacaoDocumentalService.revalidar` usa exclusivamente campos persistidos.
+Não lê arquivo, não chama Gemini e não executa cálculo. Só cria a conta segundo
+as regras documentais existentes; qualquer outra pendência mantém o bloqueio.
+Na jornada, envio/revisão permanece na etapa 3; o cálculo exige clique explícito
+e a etapa 4 depende de um cálculo retornado pelo backend, sem conclusão visual
+local. O modal e os cards reutilizam estilos existentes.
+
+Validação visual reproduzível: `frontend/review/association.cjs`, com Playwright
+externo indicado por `PLAYWRIGHT_MODULE` e Chromium por `CHROMIUM_PATH`. Usa
+fixture simulada com o nome do caso `001763932016.pdf`, sem assumir associação
+real nem chamar IA. O snapshot real mencionado em relatórios anteriores não
+estava disponível nesta execução; o documento publicado não foi alterado.
+
+Verificações desta evolução: **365 testes backend aprovados** (19 novos),
+**11 testes frontend aprovados** (4 novos), lint, build e `git diff --check`
+aprovados. O teste de migration cobre upgrade/downgrade/reupgrade em SQLite
+temporário preservando o cadastro e verificando unicidade. O roteiro de navegador
+passou em desktop e tela estreita, incluindo erro recuperável, ID enviado,
+preservação do nome, etapa 3 após associação e ausência de nova IA/cálculo até a
+ação explícita. Nenhuma migration foi aplicada ao banco publicado.

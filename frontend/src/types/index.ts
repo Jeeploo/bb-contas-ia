@@ -36,6 +36,7 @@ export interface ExtracaoInteligente {
     bloqueia_calculo?: boolean;
     resultado_validacao_documental?: string;
     motivo_validacao_documental?: string;
+    historico_validacao_documental?: {evento?: string; [key: string]: unknown}[];
     evidencias_validacao_documental?: Record<string, unknown>;
     id_extracao: number;
     data_processamento: string;

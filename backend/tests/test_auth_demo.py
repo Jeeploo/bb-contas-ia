@@ -10,6 +10,7 @@ from app.main import app
 from app.core.config import settings
 from app.api.auth_dependencies import authorize_request, get_current_user
 from app.api.dependencies import get_contexto_operacional
+from app import models
 from app.models import Usuario, Prefixo, UsuarioPrefixo
 from app.models.auth_demo import CredencialDemo, SessaoDemo
 from app.services.auth_demo import COOKIE, now, token_hash, verify_secret, hash_secret
@@ -189,3 +190,72 @@ class DemoAuthTests(ApiTestCase):
             with self.subTest(mime=mime):
                 response=self.client.post('/api/v1/ordens_pagamento',content=json.dumps(data),headers={'Content-Type':mime})
                 self.assertEqual(response.status_code,404,response.text)
+
+    def endpoint(self, id=999):
+        return f'/api/v1/extracoes_inteligentes/{id}/resolver-concessionaria'
+
+    def test_exige_sessao(self):
+        self.assertEqual(self.client.post(self.endpoint(),json={'id_concessionaria':1}).status_code,401)
+
+    def test_exige_escopo_autorizado(self):
+        self.login()
+        self.assertEqual(self.client.post(self.endpoint(),json={'id_concessionaria':1}).status_code,404)
+        with Session(self.engine) as s:
+            for link in s.query(models.UsuarioPrefixo).filter_by(id_usuario=self.manifest['usuarios']['maker']['id_usuario']): link.ativo=False; link.principal=False
+            s.commit()
+        self.assertEqual(self.client.post(self.endpoint(),json={'id_concessionaria':1}).status_code,403)
+
+    def test_listagem_minima_ativa(self):
+        self.login()
+        response=self.client.get('/api/v1/concessionarias/elegiveis/associacao')
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertTrue(response.json())
+        self.assertEqual(set(response.json()[0]),{'id_concessionaria','nome','ativo'})
+
+    def test_identidade_frontend_recusada(self):
+        self.login()
+        self.assertEqual(self.client.post(self.endpoint(self.persisted_extraction()),json={'id_concessionaria':1,'id_usuario':999}).status_code,403)
+
+
+    def persisted_extraction(self):
+        from datetime import datetime
+        with Session(self.engine) as s:
+            p = self.manifest['prefixos']['REC-DEMO']['id_prefixo']
+            doc = models.Documento(tipo_documento='fatura', formato='pdf', data_recebimento=datetime.now(),
+                origem='snapshot', caminho_arquivo='001763932016.pdf', id_prefixo_contexto=p)
+            s.add(doc); s.flush()
+            e = models.ExtracaoInteligente(id_documento=doc.id_documento, data_processamento=datetime.now(),
+                situacao_validacao='revisao_cadastral_pendente', id_usuario_contexto=self.manifest['usuarios']['maker']['id_usuario'],
+                id_prefixo_contexto=p)
+            s.add(e); s.flush()
+            values = dict(tipo_documento='ENERGIA', uf='PE', municipio='Recife',
+                concessionaria='COMPANHIA ENERGÉTICA DE PERNAMBUCO', unidade_consumidora='001',
+                competencia='2026-09', data_vencimento='2026-10-20', valor_original='736.53')
+            for name, value in values.items():
+                s.add(models.DadoExtraido(id_extracao=e.id_extracao,campo_identificado=name,
+                    valor_extraido=value,valor_validado=value,situacao_validacao='validada'))
+            s.commit()
+            return e.id_extracao
+
+    def test_associacao_http_identidade_sessao_sem_ia(self):
+        user = self.login().json()['usuario']['id_usuario']
+        eid = self.persisted_extraction()
+        cid = self.manifest['concessionarias']['energia']['id_concessionaria']
+        with patch('app.services.leitura_inteligente.get_document_ai_provider',side_effect=AssertionError('IA proibida')):
+            response = self.client.post(self.endpoint(eid),json={'id_concessionaria':cid})
+        self.assertEqual(response.status_code,200,response.text)
+        e = response.json()
+        self.assertEqual(e['evidencias_validacao_documental']['id_concessionaria'],cid)
+        audit = next(h for h in e['historico_validacao_documental'] if h.get('evento')=='CONCESSIONARIA_ASSOCIADA')
+        self.assertEqual(audit['id_usuario'],user)
+        self.assertEqual(audit['nome_extraido'],'COMPANHIA ENERGÉTICA DE PERNAMBUCO')
+        with Session(self.engine) as s:
+            self.assertEqual(s.query(models.ConcessionariaAlias).count(),1)
+
+    def test_associacao_http_inexistente_e_identidade_extra(self):
+        user = self.login().json()['usuario']['id_usuario']
+        eid = self.persisted_extraction()
+        response = self.client.post(self.endpoint(eid),json={'id_concessionaria':999999})
+        self.assertEqual(response.status_code,403,response.text)
+        response = self.client.post(self.endpoint(eid),json={'id_concessionaria':1,'id_usuario':user})
+        self.assertEqual(response.status_code,422,response.text)

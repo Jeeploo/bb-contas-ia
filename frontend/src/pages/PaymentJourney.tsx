@@ -1,5 +1,8 @@
+import { ProcessingState } from '../components/payment/ProcessingState';
+import type { ProcessingPhase } from '../utils/processingProgress';
+import { journeyStep } from '../utils/journey';
+import { ConcessionariaReview, AssociarConcessionariaModal, type OpcaoConcessionaria } from '../components/payment/ConcessionariaReview';
 import { Alert, DocumentaryAlerts, canSubmitReview } from "../components/payment/DocumentaryAlerts";
-import { ValidationSummary } from "../components/payment/ValidationSummary";
 import { useAuth } from "../auth/AuthContext";
 import { useState } from "react";
 import { parseCompetenciaDisplay } from "../utils/competencia";
@@ -8,7 +11,6 @@ import { errorMessage } from "../api/client";
 import { money } from "../components/ui";
 import {
   PaymentStepper,
-  ProcessingState,
 } from "../components/payment/PaymentStepper";
 import { UploadArea } from "../components/payment/UploadArea";
 import {
@@ -23,33 +25,52 @@ import {
 import type { ProcessamentoDocumento, Calculo, Documento } from "../types";
 export function PaymentJourney() {
   const { session, changingPrefix, selectPrefix } = useAuth();
-  const [step, setStep] = useState(1);
+  const [associating, setAssociating] = useState(false);
+  const [opcoes, setOpcoes] = useState<OpcaoConcessionaria[]>([]);
+  const [selected, setSelected] = useState(0);
   const [file, setFile] = useState<File>();
   const [doc, setDoc] = useState<Documento>();
   const [result, setResult] = useState<ProcessamentoDocumento>();
   const [calculo, setCalculo] = useState<Calculo>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [processingPhase, setProcessingPhase] = useState<ProcessingPhase>('uploading');
+  const [processingAttempt, setProcessingAttempt] = useState(0);
+  const [processingVisible, setProcessingVisible] = useState(false);
+  const [processedResult, setProcessedResult] = useState<ProcessamentoDocumento>();
   const [editing, setEditing] = useState(false);
+  const step = journeyStep(result?.extracao, calculo);
   const prefixos = session?.prefixos ?? [];
   const selectedPrefix = prefixos.find(p=>p.id_prefixo === session?.id_prefixo_ativo);
   async function process() {
-    if (!file || !selectedPrefix || changingPrefix) return;
+    if (!file || !selectedPrefix || changingPrefix || busy) return;
+    setProcessingAttempt(attempt => attempt + 1);
+    setProcessingPhase('uploading');
+    setProcessingVisible(true);
+    setProcessedResult(undefined);
     setError("");
     setBusy(true);
     try {
       const uploaded = doc ?? (await api.uploadInicial(file));
       setDoc(uploaded);
+      setProcessingPhase('extracting');
       const response = await api.processarInteligente(uploaded.id_documento);
+      setProcessingPhase('validating');
       response.extracao = await api.revalidarExtracao(response.extracao.id_extracao);
-      setResult(response);
-      setCalculo(undefined);
-      setStep(2);
+      setProcessedResult(response);
+      setProcessingPhase('complete');
     } catch (e) {
       setError(errorMessage(e));
-    } finally {
+      setProcessingPhase('error');
       setBusy(false);
     }
+  }
+  function showProcessedSummary() {
+    if (!processedResult) return;
+    setResult(processedResult);
+    setCalculo(undefined);
+    setProcessingVisible(false);
+    setBusy(false);
   }
   async function validate(values?: Record<string, string>) {
     if (!result) return;
@@ -105,15 +126,34 @@ export function PaymentJourney() {
       if (!values) {
         const encaminhada = await api.enviarValidacao(reviewed.extracao.id_extracao);
         setResult({ ...reviewed, extracao: encaminhada });
-        if (encaminhada.bloqueia_calculo || !reviewed.documento.id_conta) return;
-        setCalculo(await api.calcular(reviewed.documento.id_conta));
-        setStep(3);
       }
     } catch (e) {
       setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
+  }
+  async function openAssociation() {
+    setError(''); setSelected(0); setOpcoes([]); setAssociating(true); setBusy(true);
+    try { setOpcoes(await api.concessionariasElegiveis()); }
+    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  }
+  async function associate() {
+    if (!result || !selected) return;
+    setBusy(true); setError('');
+    try {
+      const extracao = await api.resolverConcessionaria(result.extracao.id_extracao, selected);
+      setResult({...result, extracao}); setAssociating(false);
+    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  }
+  async function calculate() {
+    if (!result || result.extracao.bloqueia_calculo) return;
+    setBusy(true); setError('');
+    try {
+      const documento = (await api.documentos()).find(d => d.id_documento === result.documento.id_documento);
+      if (!documento?.id_conta) throw new Error('Conta ainda não disponível para cálculo');
+      setResult({...result, documento}); setCalculo(await api.calcular(documento.id_conta));
+    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
   const fields = (() => {
     const values = new Map<string, string>();
@@ -133,7 +173,6 @@ export function PaymentJourney() {
     return [...values].sort(([a], [b]) => (order.includes(a) ? order.indexOf(a) : order.length) - (order.includes(b) ? order.indexOf(b) : order.length)).map(([label, value]) => ({ label, value }));
   })();
   function reset() {
-    setStep(1);
     setFile(undefined);
     setDoc(undefined);
     setResult(undefined);
@@ -150,12 +189,14 @@ export function PaymentJourney() {
         </div>
       </div>
       <PaymentStepper step={step} />
-      {error && !editing && (
+      {error && !editing && !associating && !processingVisible && (
         <Alert variant="error">{error}</Alert>
       )}
       {step === 1 &&
-        (busy ? (
-          <ProcessingState received={!!doc} />
+        (processingVisible ? (
+          <ProcessingState key={processingAttempt} phase={processingPhase} received={!!doc} error={error}
+            onComplete={showProcessedSummary} onRetry={() => void process()}
+            onBack={() => { setProcessingVisible(false); setError(''); setFile(undefined); setDoc(undefined); }} />
         ) : (
           <section className="card upload-card">
             <div className="upload-heading"><span className="section-number">1</span><div><h2>Upload da fatura</h2><p>Envie uma imagem ou PDF para leitura automática dos dados</p></div></div>
@@ -241,9 +282,13 @@ export function PaymentJourney() {
         </section>
         </>
       )}
-      {step === 3 && calculo && (
-        <ValidationSummary fields={fields} calculo={calculo} onBack={() => setStep(2)} onConfirm={() => setStep(4)} />
-      )}
+      {step === 3 && result && <ConcessionariaReview extracao={result.extracao}
+        nome={result.campos_encontrados.find(f => f.campo_identificado === 'concessionaria')?.valor_extraido ?? undefined}
+        busy={busy} onAssociate={() => void openAssociation()} onCalculate={() => void calculate()} />}
+      {associating && result && <AssociarConcessionariaModal
+        nome={result.campos_encontrados.find(f => f.campo_identificado === 'concessionaria')?.valor_extraido ?? undefined}
+        opcoes={opcoes} selected={selected} busy={busy} error={error} onSelect={setSelected}
+        onClose={() => {setAssociating(false); setError('');}} onConfirm={() => void associate()} />}
       {step === 4 && calculo && (
         <ConfirmationCard fields={fields} calculo={calculo} onReset={reset} />
       )}

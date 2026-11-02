@@ -26,7 +26,7 @@ class ValidacaoDocumentalService:
     def __init__(self, session):
         self.session = session
 
-    def avaliar(self, dados, id_usuario=None, id_prefixo=None, id_prefixo_conta=None):
+    def avaliar(self, dados, id_usuario=None, id_prefixo=None, id_prefixo_conta=None, resolucao_manual=None):
         e = dict(dados_identificados=dict(dados), id_usuario=id_usuario,
                  id_prefixo_solicitado=id_prefixo, uf_mvp=settings.uf_mvp,
                  versao_validador=2)
@@ -95,12 +95,20 @@ class ValidacaoDocumentalService:
         nome = normalizar(dados.get("concessionaria"))
         if not nome:
             return result(R.EVIDENCIA_INSUFICIENTE, "Concessionária ausente")
-        matches = [c for c in self.session.scalars(select(Concessionaria))
-                   if nome in {normalizar(c.cnpj), normalizar(c.razao_social), normalizar(c.nome_fantasia)}]
+        from app.services.correspondencia_concessionaria import correspondencias
+        matches, origem = correspondencias(self.session, dados.get("concessionaria"))
+        if resolucao_manual:
+            from app.services.correspondencia_concessionaria import normalizar_nome
+            candidate = self.session.get(Concessionaria, resolucao_manual["id_concessionaria"])
+            if candidate and candidate.ativo and resolucao_manual["nome_normalizado"] == normalizar_nome(dados.get("concessionaria")):
+                matches, origem = [candidate], "manual"
         if len(matches) != 1:
             return result(R.EVIDENCIA_INSUFICIENTE, "Concessionária sem correspondência cadastral", "CORRESPONDENCIA_CONCESSIONARIA")
         concessionaria = matches[0]
         e["id_concessionaria"] = concessionaria.id_concessionaria
+        e["nome_concessionaria"] = concessionaria.razao_social
+        e["origem_correspondencia"] = origem
+        e["origem_resolucao"] = "manual" if origem == "manual" else "automatica"
         if normalizar(concessionaria.tipo_servico) != normalizar(service):
             return result(R.EVIDENCIA_INSUFICIENTE, "Tipo documental e serviço cadastrado inconsistentes")
         unidade = str(dados.get("unidade_consumidora") or "").strip()
@@ -134,7 +142,8 @@ class ValidacaoDocumentalService:
             dados[field.campo_identificado] = (field.valor_validado
                 if field.situacao_validacao == "validada" and field.valor_validado is not None else (field.valor_normalizado if field.valor_normalizado is not None else field.valor_extraido))
         status, reason, evidence = self.avaliar(dados, extraction.id_usuario_contexto,
-            extraction.id_prefixo_contexto, extraction.documento.conta.id_prefixo if extraction.documento.conta else extraction.documento.id_prefixo_contexto)
+            extraction.id_prefixo_contexto, extraction.documento.conta.id_prefixo if extraction.documento.conta else extraction.documento.id_prefixo_contexto,
+            next((h for h in reversed(extraction.historico_validacao_documental or []) if h.get("evento") == "CONCESSIONARIA_ASSOCIADA"), None))
         if duplicated:
             evidence["pendencias"].append(dict(tipo="CAMPOS_DUPLICADOS", mensagem="Campos duplicados na extração", bloqueia_envio_validacao=True, bloqueia_calculo=True))
             status, reason = R.EVIDENCIA_INSUFICIENTE.value, "Campos duplicados na extração"

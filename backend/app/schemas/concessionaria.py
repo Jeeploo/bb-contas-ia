@@ -19,6 +19,7 @@ class ConcessionariaUpdate(BaseModel):
     razao_social: str | None = None
     nome_fantasia: str | None = None
     tipo_servico: str | None = None
+    ativo: bool | None = None
 
 
 class ConcessionariaRead(ConcessionariaBase):

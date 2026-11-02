@@ -732,3 +732,35 @@ main { padding-top: 20px; }
 .documentary-alert-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
 .documentary-alert-review { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
 .documentary-alert-error { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+
+/* Progresso documental: reutiliza o card, as cores e os botões da jornada. */
+.processing-progress { position: relative; width: 184px; height: 184px; margin: 0 auto 20px; }
+.processing-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.processing-ring circle { fill: none; stroke-width: 9; }
+.processing-ring-track { stroke: #d6e4ff; }
+.processing-ring-value { stroke: #003da5; stroke-linecap: round; transition: stroke-dashoffset 150ms linear; }
+.processing-percentage { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; }
+.processing-percentage strong { color: #12377b; font-size: 38px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.processing-percentage span { color: #6b7c92; font-size: 13px; line-height: 1.35; margin-top: 4px; }
+.processing .processing-estimate { font-size: 12px; margin: 8px 0 16px; color: #6b7c92; }
+.processing ul { display: grid; gap: 5px; max-width: 410px; margin: 0 auto; width: 100%; }
+.processing-activity { display: flex; gap: 12px; align-items: center; padding: 9px 14px; border-radius: 8px; font-weight: 600; }
+.processing-activity.pending { color: #8591a4; }
+.processing-activity.active { color: #003da5; background: #e7efff; }
+.processing-activity.complete { color: #12377b; }
+.processing-activity-icon { flex: 0 0 20px; height: 20px; border: 2px solid #b4bfce; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; font-size: 13px; line-height: 1; }
+.processing-activity.complete .processing-activity-icon { background: #44a719; border-color: #44a719; color: white; }
+.processing-activity.active .processing-activity-icon { border-color: #003da5; color: #003da5; }
+.processing-activity.error { color: #9e3029; }
+.processing-activity.error .processing-activity-icon { border-color: #9e3029; }
+.processing-error .processing-ring-value { stroke: #9e3029; }
+.processing .documentary-alert { text-align: left; margin-top: 20px; }
+@media (max-width: 480px) {
+  .processing { padding: 24px 16px; }
+  .processing-progress { width: 160px; height: 160px; }
+  .processing-activity { padding: 9px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .processing-ring-value { transition: none; }
+}
+.processing .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }

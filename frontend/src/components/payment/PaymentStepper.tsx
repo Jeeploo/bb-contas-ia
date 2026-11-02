@@ -19,26 +19,3 @@ export function PaymentStepper({ step }: { step: number }) {
     </ol>
   );
 }
-export function ProcessingState({ received }: { received: boolean }) {
-  return (
-    <section className="card processing" role="status">
-      <div className="loader" />
-      <h2>Lendo e interpretando sua fatura...</h2>
-      <p>Aguarde enquanto as informações da fatura são organizadas.</p>
-      <ul aria-label="Atividades da leitura em andamento">
-        {[
-          "Documento recebido",
-          "Extraindo informações",
-          "Identificando tipo de fatura",
-          "Lendo valores e datas",
-          "Validação cadastral",
-          "Preparando resumo",
-        ].map((s, i) => (
-          <li key={s}>
-            {i === 0 && received ? "✓" : "○"} {s}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}

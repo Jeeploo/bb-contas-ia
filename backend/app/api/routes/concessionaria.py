@@ -29,6 +29,14 @@ def list_entities(
     return ConcessionariaService(session).list(offset=offset, limit=limit)
 
 
+@router.get("/elegiveis/associacao")
+def elegiveis(session: DatabaseSession):
+    from sqlalchemy import select
+    from app.models import Concessionaria
+    return [dict(id_concessionaria=c.id_concessionaria, nome=c.razao_social, ativo=c.ativo)
+            for c in session.scalars(select(Concessionaria).where(Concessionaria.ativo.is_(True)).order_by(Concessionaria.razao_social))]
+
+
 @router.get("/{id}", response_model=ConcessionariaRead)
 def get_by_id(id: int, session: DatabaseSession):
     return ConcessionariaService(session).get_by_id(id)

@@ -1,6 +1,8 @@
 import { listAll, request } from './client';
 import type { ItemRegra, PerfilProcessamento, ItemExtraido, RespostaCalculoContextual, Localidade, RegraCalculo, ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
 export const api = {
+    concessionariasElegiveis: () => request<{id_concessionaria: number; nome: string; ativo: boolean}[]>('/concessionarias/elegiveis/associacao'),
+    resolverConcessionaria: (id: number, id_concessionaria: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/resolver-concessionaria`, { method: 'POST', body: JSON.stringify({id_concessionaria}) }),
     revalidarExtracao: (id: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/revalidar`, { method: 'POST' }),
     enviarValidacao: (id: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/enviar-validacao`, { method: 'POST' }),
     prefixosUsuario: (id: number) => request<{ vinculos: { id_prefixo: number; ativo: boolean }[] }>(`/usuarios/${id}/prefixos`),

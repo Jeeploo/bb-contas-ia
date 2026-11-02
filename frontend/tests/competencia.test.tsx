@@ -58,3 +58,77 @@ test('múltiplas pendências aparecem separadamente', () => {
 test('alertas oferecem quatro variantes centralizadas', () => {
   for (const variant of ['info','warning','review','error'] as const) assert.ok(renderToStaticMarkup(<Alert variant={variant}>Mensagem</Alert>).includes(`documentary-alert-${variant}`));
 });
+
+import { journeyStep } from '../src/utils/journey';
+import { PaymentStepper } from '../src/components/payment/PaymentStepper';
+import { ConcessionariaReview, AssociarConcessionariaModal } from '../src/components/payment/ConcessionariaReview';
+test('envio e revisão cadastral permanecem na etapa 3 sem conclusão visual', () => {
+  assert.equal(journeyStep(),1);
+  assert.equal(journeyStep(review),2);
+  const sent = {...review, historico_validacao_documental:[{evento:'ENVIADO_PARA_VALIDACAO'}]};
+  assert.equal(journeyStep(sent),3);
+  assert.equal(journeyStep({...sent,situacao_validacao:'revisao_cadastral_pendente'}),3);
+  const html=renderToStaticMarkup(<PaymentStepper step={journeyStep(sent)} />);
+  assert.ok(html.includes('aria-current="step"><span>3</span>'));
+  assert.ok(!html.includes('aria-current="step"><span>4</span>'));
+});
+test('validação exibe nome extraído e ação de associação', () => {
+  const html=renderToStaticMarkup(<ConcessionariaReview extracao={review} nome="COMPANHIA ENERGÉTICA DE PERNAMBUCO" busy={false} onAssociate={()=>{}} onCalculate={()=>{}} />);
+  for (const text of ['Documento enviado para validação','Pendência cadastral','Associar concessionária','COMPANHIA ENERGÉTICA DE PERNAMBUCO']) assert.ok(html.includes(text));
+  assert.ok(!html.includes('Calcular fatura'));
+});
+test('modal lista cadastros e preserva nome extraído', () => {
+  const html=renderToStaticMarkup(<AssociarConcessionariaModal nome="COMPANHIA ENERGÉTICA DE PERNAMBUCO" opcoes={[{id_concessionaria:7,nome:'Cadastro oficial',ativo:true}]} selected={7} busy={false} error="" onSelect={()=>{}} onClose={()=>{}} onConfirm={()=>{}} />);
+  for (const text of ['dialog','COMPANHIA ENERGÉTICA DE PERNAMBUCO','value="7"','Cadastro oficial','Confirmar associação','Cancelar']) assert.ok(html.includes(text));
+});
+test('sucesso exibe cadastro resolvido e cálculo depende de elegibilidade', () => {
+  const resolved={...review,situacao_validacao:'validada',pendencias:[],bloqueia_calculo:false,evidencias_validacao_documental:{nome_concessionaria:'Cadastro oficial'}};
+  assert.equal(journeyStep(resolved),3);
+  const html=renderToStaticMarkup(<ConcessionariaReview extracao={resolved} nome="Nome original" busy={false} onAssociate={()=>{}} onCalculate={()=>{}} />);
+  for (const text of ['Correspondência cadastral resolvida','Cadastro oficial','Nome original','Calcular fatura']) assert.ok(html.includes(text));
+  assert.ok(!html.includes('Associar concessionária'));
+});
+
+import { advanceProcessingProgress, processingActivityState, processingActivities, type ProcessingPhase } from '../src/utils/processingProgress';
+import { ProcessingState } from '../src/components/payment/ProcessingState';
+test('progresso estimado respeita fronteiras HTTP e nunca atinge 100 antes do sucesso', () => {
+  let progress = 0;
+  for (const [phase, ceiling] of [['uploading',16],['extracting',78],['validating',94]] as const) {
+    for (let tick=0; tick<1000; tick++) {
+      const next=advanceProcessingProgress(progress,phase);
+      assert.ok(next>=progress && next<=ceiling);
+      progress=next;
+    }
+    assert.equal(progress,ceiling);
+    assert.ok(progress<100);
+  }
+  for (let tick=0; tick<100; tick++) progress=advanceProcessingProgress(progress,'complete');
+  assert.equal(progress,100);
+});
+test('fases visuais avançam, concluem no sucesso e param no erro', () => {
+  for (const [index,progress] of [0,18,38,58,80,95].entries()) {
+    for (let i=0; i<processingActivities.length; i++) {
+      assert.equal(processingActivityState(i,progress,'extracting'),i<index?'complete':i===index?'active':'pending');
+    }
+  }
+  for (let i=0; i<6; i++) assert.equal(processingActivityState(i,100,'complete'),'complete');
+  assert.equal(advanceProcessingProgress(62,'error'),62);
+  assert.equal(processingActivityState(3,62,'error'),'error');
+});
+test('tela inicia em zero com progresso acessível e erro permite nova tentativa', () => {
+  for (const phase of ['uploading','error'] as ProcessingPhase[]) {
+    const html=renderToStaticMarkup(<ProcessingState phase={phase} error="Falha temporária. Tente novamente." onComplete={()=>{}} onRetry={()=>{}} onBack={()=>{}} />);
+    assert.ok(html.includes('role="progressbar"'));
+    assert.ok(html.includes('aria-valuenow="0"'));
+    assert.ok(!html.includes('class="loader"'));
+    for (const activity of processingActivities) assert.ok(html.includes(activity));
+    if(phase==='error') for (const value of ['role="alert"','Falha temporária','Tentar novamente','Escolher outro arquivo']) assert.ok(html.includes(value));
+  }
+});
+
+test('erro após upload mantém documento recebido concluído', () => {
+  const html=renderToStaticMarkup(<ProcessingState phase="error" received error="Leitura indisponível" onComplete={()=>{}} onRetry={()=>{}} onBack={()=>{}} />);
+  assert.ok(html.includes('class="processing-activity complete"'));
+  assert.ok(html.includes('Documento recebido<span class="sr-only"> — concluída'));
+  assert.ok(html.includes('Extraindo informações<span class="sr-only"> — interrompida'));
+});

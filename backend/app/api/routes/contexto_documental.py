@@ -1,4 +1,4 @@
-"""Administração cadastral e entrada estruturada; sem autenticação nesta etapa."""
+"""Contexto documental protegido pelas dependências de sessão e escopo da API."""
 from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
@@ -76,3 +76,31 @@ def revalidar(id_extracao: int, session: DB, request: Request, contexto: Context
 @router.patch("/unidades_consumidoras/{id_unidade}", response_model=UnidadeConsumidoraRead)
 def atualizar_unidade(id_unidade: int, data: UnidadeConsumidoraUpdate, session: DB):
     return ContextoOperacionalService(session).atualizar_unidade(id_unidade, data)
+
+
+from pydantic import BaseModel, ConfigDict
+
+
+class ResolverConcessionaria(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id_concessionaria: int
+
+
+@router.post("/extracoes_inteligentes/{id_extracao}/resolver-concessionaria", response_model=ExtracaoInteligenteRead)
+def resolver_concessionaria(id_extracao: int, data: ResolverConcessionaria, session: DB,
+                            contexto=Depends(get_contexto_operacional)):
+    from app.services.correspondencia_concessionaria import associar
+    from fastapi import HTTPException
+    if contexto is None:
+        raise HTTPException(401, "Sessão obrigatória")
+    try:
+        extraction = session.scalar(select(ExtracaoInteligente).where(
+            ExtracaoInteligente.id_extracao == id_extracao).with_for_update())
+        if extraction is None:
+            raise EntityNotFoundError("ExtracaoInteligente", id_extracao)
+        result = associar(session, extraction, data.id_concessionaria, contexto)
+        session.commit()
+        return result
+    except Exception:
+        session.rollback()
+        raise
