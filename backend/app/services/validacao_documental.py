@@ -29,12 +29,12 @@ class ValidacaoDocumentalService:
     def avaliar(self, dados, id_usuario=None, id_prefixo=None, id_prefixo_conta=None, resolucao_manual=None):
         e = dict(dados_identificados=dict(dados), id_usuario=id_usuario,
                  id_prefixo_solicitado=id_prefixo, uf_mvp=settings.uf_mvp,
-                 versao_validador=2)
+                 versao_validador=3)
         def result(status, reason, tipo=None):
-            pendencias = []
+            pendencias = list(alertas)
             if status != R.VALIDO:
                 pendencias.append(dict(tipo=tipo or status.value, mensagem=reason,
-                    bloqueia_envio_validacao=tipo != "CORRESPONDENCIA_CONCESSIONARIA",
+                    bloqueia_envio_validacao=True,
                     bloqueia_calculo=True))
             # Verificar todos os mínimos, mesmo quando a decisão cadastral retorna antes.
             for campo in ("tipo_documento", "uf", "municipio", "concessionaria", "unidade_consumidora",
@@ -63,6 +63,10 @@ class ValidacaoDocumentalService:
                         bloqueia_envio_validacao=True, bloqueia_calculo=True))
             e["pendencias"] = pendencias
             return status.value, reason, e
+        alertas = []
+        def alerta(tipo, mensagem):
+            alertas.append(dict(tipo=tipo, mensagem=mensagem, bloqueia_envio_validacao=False, bloqueia_calculo=False))
+
         tipo = normalizar(dados.get("tipo_documento"))
         if not tipo or tipo in {"DESCONHECIDO", "INDETERMINADO", "FATURA", "CONTA_CONSUMO"}:
             return result(R.EVIDENCIA_INSUFICIENTE, "Tipo documental não confirmado")
@@ -103,13 +107,18 @@ class ValidacaoDocumentalService:
             if candidate and candidate.ativo and resolucao_manual["nome_normalizado"] == normalizar_nome(dados.get("concessionaria")):
                 matches, origem = [candidate], "manual"
         if len(matches) != 1:
-            return result(R.EVIDENCIA_INSUFICIENTE, "Concessionária sem correspondência cadastral", "CORRESPONDENCIA_CONCESSIONARIA")
+            alerta("CORRESPONDENCIA_CONCESSIONARIA", "Concessionária sem correspondência cadastral.")
+            if dados.get("unidade_consumidora"):
+                alerta("VINCULO_UNIDADE", "Unidade consumidora sem vínculo cadastral ativo.")
+            return result(R.VALIDO, "Documento elegível com pendência cadastral")
         concessionaria = matches[0]
         e["id_concessionaria"] = concessionaria.id_concessionaria
         e["nome_concessionaria"] = concessionaria.razao_social
         e["origem_correspondencia"] = origem
         e["origem_resolucao"] = "manual" if origem == "manual" else "automatica"
-        if normalizar(concessionaria.tipo_servico) != normalizar(service):
+        if not normalizar(concessionaria.tipo_servico):
+            alerta("CADASTRO_INCOMPLETO", "Cadastro da concessionária sem tipo de serviço.")
+        elif normalizar(concessionaria.tipo_servico) != normalizar(service):
             return result(R.EVIDENCIA_INSUFICIENTE, "Tipo documental e serviço cadastrado inconsistentes")
         unidade = str(dados.get("unidade_consumidora") or "").strip()
         if not unidade:
@@ -120,7 +129,8 @@ class ValidacaoDocumentalService:
             UnidadeConsumidora.unidade_consumidora == unidade,
             UnidadeConsumidora.ativo.is_(True)))
         if unit is None:
-            return result(R.EVIDENCIA_INSUFICIENTE, "Unidade sem vínculo cadastral ativo")
+            alerta("VINCULO_UNIDADE", "Unidade consumidora sem vínculo cadastral ativo.")
+            return result(R.VALIDO, "Documento elegível com pendência cadastral")
         e.update(id_unidade_consumidora=unit.id_unidade_consumidora,
                  prefixo_unidade=unit.id_prefixo, compatibilidade_unidade=unit.id_prefixo == prefix.id_prefixo)
         if unit.id_prefixo != prefix.id_prefixo:
@@ -169,13 +179,15 @@ def revalidar_contextos(session):
 def politica_revisao(extraction):
     """Falha fechada para extrações antigas, até revalidação determinística."""
     pendencias = (extraction.evidencias_validacao_documental or {}).get("pendencias")
-    permite = pendencias is not None and not any(p["bloqueia_envio_validacao"] for p in pendencias)
+    permite = extraction.resultado_validacao_documental == "VALIDO" and pendencias is not None and not any(p.get("bloqueia_envio_validacao", True) for p in pendencias)
     return dict(pendencias=pendencias or [], permite_envio_validacao=permite,
-                bloqueia_calculo=extraction.resultado_validacao_documental != "VALIDO" or bool(pendencias))
+                bloqueia_calculo=extraction.resultado_validacao_documental != "VALIDO" or pendencias is None or any(p.get("bloqueia_calculo", True) for p in pendencias))
 
 
 def encaminhar_revisao(session, extraction, contexto=None):
     from app.services.exceptions import ContextoOperacionalError
+    if any(h.get('evento') == 'CALCULO_DEMO' for h in extraction.historico_validacao_documental or []):
+        raise ContextoOperacionalError("Processamento já concluído")
     service = ValidacaoDocumentalService(session)
     service.revalidar(extraction, contexto)
     if not politica_revisao(extraction)["permite_envio_validacao"]:

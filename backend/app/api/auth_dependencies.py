@@ -65,7 +65,7 @@ async def authorize_request(request: Request, user=Depends(get_current_user), se
         request.method == 'POST' and (
             parts == ['documentos', 'upload'] or parts in [['ordens_pagamento'], ['aprovacoes']]
             or (len(parts) == 3 and (
-                parts[0] == 'documentos' and parts[2] in {'processar', 'processar-inteligente', 'interpretacao'}
+                parts[0] == 'documentos' and parts[2] in {'processar', 'processar-inteligente', 'interpretacao', 'calcular-demo', 'nova-fatura', 'decisao-checker'}
                 or parts[0] == 'contas_consumo' and parts[2] == 'calcular'
                 or parts[0] == 'extracoes_inteligentes' and parts[2] in {'revalidar', 'enviar-validacao', 'resolver-concessionaria'}))
             or len(parts) == 4 and parts[0] == 'contas_consumo' and parts[2:] == ['documentos', 'upload'])

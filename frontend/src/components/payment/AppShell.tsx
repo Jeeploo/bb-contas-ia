@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { errorMessage } from "../../api/client";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Bell, Settings, Search, FileText, CreditCard, BarChart3, ChevronDown } from "lucide-react";
+import { Bell, Settings, Search, FileText, CreditCard, BarChart3, ChevronDown, ShieldCheck } from "lucide-react";
 
 export function Sidebar() {
   return (
@@ -16,6 +16,7 @@ export function Sidebar() {
         {[
           { to: "/faturas", label: "Faturas", Icon: FileText },
           { to: "/pagamentos", label: "Pagamentos", Icon: CreditCard },
+          { to: "/aprovacoes", label: "Checker", Icon: ShieldCheck },
           { to: "/relatorios", label: "Relatórios", Icon: BarChart3 },
         ].map(({ to, label, Icon }) => (
           <NavLink key={to} to={to}><Icon size={18} />{label}</NavLink>

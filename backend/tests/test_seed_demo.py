@@ -83,7 +83,7 @@ class DemoSeedTests(ApiTestCase):
 
     def test_unknown_unit(self):
         self.assertEqual(self.evaluate('energia-recife', unidade_consumidora='UC-DEMO-AUSENTE')[0],
-                         'EVIDENCIA_INSUFICIENTE')
+                         'VALIDO')
 
     def test_unique_utility_and_correct_unit_in_evidence(self):
         status, _, evidence = self.evaluate('energia-recife')
@@ -96,16 +96,17 @@ class DemoSeedTests(ApiTestCase):
             self.assertEqual(unit.id_prefixo, self.manifest['prefixos']['REC-DEMO']['id_prefixo'])
 
     def test_unknown_utility(self):
-        self.assertEqual(self.evaluate('concessionaria-desconhecida')[0], 'EVIDENCIA_INSUFICIENTE')
+        self.assertEqual(self.evaluate('concessionaria-desconhecida')[0], 'VALIDO')
 
     def test_ambiguous_utility(self):
         with Session(self.engine) as s:
             s.add(models.Concessionaria(cnpj='DEMO-TEST-AMBIGUO',
                   razao_social='ENERGIA DEMO PE', tipo_servico='energia'))
             s.commit()
-        self.assertEqual(self.evaluate('energia-recife')[0], 'EVIDENCIA_INSUFICIENTE')
-        with self.assertRaises(RuntimeError), contextlib.redirect_stdout(io.StringIO()):
-            self.seed()
+        status, _, evidence = self.evaluate('energia-recife')
+        self.assertEqual(status, 'VALIDO')
+        self.assertEqual(evidence['pendencias'][0]['tipo'], 'CORRESPONDENCIA_CONCESSIONARIA')
+        self.assertNotIn('id_concessionaria', evidence)
 
     def test_unauthorized_prefix_refused_before_persistence(self):
         case = self.cases['energia-paulista']

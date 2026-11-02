@@ -50,15 +50,31 @@ As credenciais abaixo são deliberadamente fracas, exclusivas do ambiente demons
 
 ## Jornada da fatura
 
-Upload do documento → leitura pela IA → normalização dos campos → validação determinística → revisão humana → resolução cadastral quando necessária → cálculo elegível → Maker/Checker.
+Upload → leitura inteligente → conferência/correção humana → validação → cálculo → processamento concluído → Checker → confirmação/rejeição.
 
-A IA interpreta o documento, mas não decide sozinha sua validade financeira ou cadastral. O cálculo exige contexto autorizado, campos validados e regras elegíveis. O backend oferece o fluxo Maker/Checker; a conclusão da revisão na interface não executa pagamento nem equivale a uma aprovação bancária.
+A IA interpreta o documento; regras, validações e cálculo permanecem determinísticos no backend. O cálculo exige contexto autorizado, campos validados e regras elegíveis. A conclusão da jornada não executa pagamento nem equivale a uma aprovação bancária.
+
+Ao sair de Pagamentos e voltar, o documento e o processamento em andamento são recuperados do backend, sem novo upload ou nova chamada ao Gemini. A ação “Nova fatura” inicia um novo contexto visual, preservando o histórico existente.
+
+Durante o processamento, a tela apresenta progresso de 0% a 100% e feedback das fases. Como o backend não fornece eventos granulares de progresso, os valores intermediários são estimados por marcos reais; 100% só ocorre após sucesso.
 
 ### Revisão cadastral
 
-Uma concessionária não reconhecida não impede, por si só, o envio do documento para revisão quando os demais requisitos documentais estão atendidos. O nome extraído (`concessionaria_extraida`) é preservado, sem inventar `id_concessionaria` e sem cadastrar concessionárias automaticamente pela IA.
+No ambiente DEMO, concessionária sem correspondência, alias ausente e unidade sem vínculo são alertas não bloqueantes quando os dados documentais essenciais estão válidos. O nome extraído (`concessionaria_extraida`) é preservado, sem inventar `id_concessionaria` e sem cadastrar concessionárias automaticamente pela IA.
 
-O documento pode permanecer em revisão cadastral, com cálculo definitivo bloqueado enquanto a pendência relevante não for resolvida. A resolução humana é seguida de revalidação determinística.
+Continuam bloqueando a jornada: arquivo/documento inválido, tipo não suportado, região incompatível, campos essenciais ausentes ou inválidos e falhas técnicas/financeiras reais. A associação cadastral humana permanece disponível, seguida de revalidação determinística.
+
+### Cálculo DEMO
+
+Para o prefixo/cenário específico preparado, a demonstração usa `valor_calculado = valor_original / 0,9055`.
+
+Exemplo atual: **R$ 736,53 / 0,9055 = R$ 813,40**, com diferença de **R$ 76,87**.
+
+Esta regra demonstrativa é baseada em um caso real de prefixo específico e não representa regra financeira aplicável a todos os prefixos do Banco do Brasil.
+
+### Checker
+
+Após o processamento concluído, a fatura fica disponível para conferência por outro usuário. O criador não confirma a própria fatura, a alçada continua sendo respeitada e o Checker pode confirmar ou rejeitar conforme o fluxo implementado.
 
 ### Storage
 
@@ -70,6 +86,7 @@ A abstração `DocumentStorage` possui implementações local, para desenvolvime
 | --- | --- |
 | `/` | Acesso DEMO |
 | `/pagamentos` | Upload, leitura, resumo, edição, validação e revisão |
+| `/aprovacoes` | Checker: conferência, confirmação ou rejeição |
 | `/faturas` | Histórico e consulta |
 | `/relatorios` | Placeholder; relatórios ainda não disponibilizados |
 
@@ -112,7 +129,7 @@ npm run dev
 
 ## Testes e verificação
 
-Estado verificado nesta atualização: **346 testes backend e 7 testes frontend aprovados**, além de lint e build aprovados. Os roteiros de revisão de navegador com Playwright ficam em `frontend/review/`, incluindo jornada documental, revisão cadastral e autenticação DEMO. As revisões documentais usam respostas simuladas; não comprovam, isoladamente, integração com os serviços publicados.
+Estado atual registrado: **383 testes backend e 19 testes frontend aprovados**, além de lint, build e `git diff --check` aprovados. A jornada completa foi validada no navegador em ambiente isolado, com leitura persistida e zero novas chamadas Gemini. Os roteiros com Playwright ficam em `frontend/review/`; essa validação não comprova, isoladamente, integração com os serviços publicados.
 
 Backend, com o ambiente virtual ativo:
 
@@ -161,3 +178,4 @@ git diff --check
 - [Integração documental](RELATORIO_INTEGRACAO_DOCUMENTAL.md)
 - [Storage R2](RELATORIO_STORAGE_R2.md)
 - [Revisão cadastral](RELATORIO_REVISAO_CADASTRAL.md)
+- [Jornada DEMO](RELATORIO_JORNADA_DEMO.md)

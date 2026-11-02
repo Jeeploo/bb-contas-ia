@@ -25,6 +25,10 @@ class DadoExtraidoService(BaseService[DadoExtraido, DadoExtraidoCreate, DadoExtr
             from app.models.extracao_inteligente import ExtracaoInteligente
             self.session.scalar(select(ExtracaoInteligente).where(
                 ExtracaoInteligente.id_extracao == instance.id_extracao).with_for_update())
+            from app.services.jornada_demo import evento
+            from app.services.exceptions import ContextoOperacionalError
+            if evento(instance.extracao, 'CALCULO_DEMO'):
+                raise ContextoOperacionalError('Processamento concluído; inicie nova fatura para outro documento')
             instance.valor_validado = (data.valor_validado if "valor_validado" in data.model_fields_set
                                       else (instance.valor_normalizado if instance.valor_normalizado is not None else instance.valor_extraido))
             if instance.campo_identificado == "competencia":
@@ -35,7 +39,7 @@ class DadoExtraidoService(BaseService[DadoExtraido, DadoExtraidoCreate, DadoExtr
             instance.situacao_validacao = "validada"
             self.session.flush()
             from app.services.validacao_documental import ValidacaoDocumentalService
-            if instance.campo_identificado in {"tipo_documento", "uf", "municipio", "concessionaria", "unidade_consumidora", "endereco_unidade"}:
+            if instance.extracao.id_usuario_contexto is not None or instance.campo_identificado in {"tipo_documento", "uf", "municipio", "concessionaria", "unidade_consumidora", "endereco_unidade"}:
                 ValidacaoDocumentalService(self.session).revalidar(instance.extracao)
             from app.services.conta_consumo import ContaConsumoService
             ContaConsumoService(self.session).criar_da_leitura(instance.extracao)

@@ -164,6 +164,15 @@ export interface ItemExtraido {
     situacao_validacao: string;
 }
 export interface MemoriaCalculo {
+    nome_regra?: string;
+    diferenca?: Decimal;
+    coeficiente?: string;
+    operacao?: string;
+    expressao?: string;
+    demonstrativa?: boolean;
+    aviso_demo?: string | null;
+    correspondencia_cadastral_confirmada?: boolean;
+    origem_regra?: string;
     estrategia: EstrategiaCalculo;
     valor_base: Decimal;
     parametros: Record<string, unknown> & { coeficiente?: Decimal };
@@ -190,3 +199,7 @@ export interface AuthSession {
     id_prefixo_ativo: number | null;
     expira_em: string;
 }
+
+export interface JornadaPersistida { documento: Documento | null; processamento: ProcessamentoDocumento | null; calculo: ResultadoCalculo | null }
+
+export type ResultadoCalculo = Calculo | (Omit<Calculo, "id_calculo" | "id_conta"> & { id_calculo?: never; id_conta: number | null; id_extracao: number; origem: "documental_demo" });

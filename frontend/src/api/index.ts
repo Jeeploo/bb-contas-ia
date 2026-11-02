@@ -1,6 +1,13 @@
+import type { JornadaPersistida, ResultadoCalculo } from '../types';
 import { listAll, request } from './client';
 import type { ItemRegra, PerfilProcessamento, ItemExtraido, RespostaCalculoContextual, Localidade, RegraCalculo, ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
 export const api = {
+    jornadaDocumento: (id: number) => request<JornadaPersistida>(`/documentos/${id}/jornada`),
+    retomarJornada: () => request<JornadaPersistida>('/documentos/jornada/atual'),
+    novaFatura: (id: number) => request<void>(`/documentos/${id}/nova-fatura`, {method:'POST'}),
+    calcularDocumento: (id: number) => request<ResultadoCalculo>(`/documentos/${id}/calcular-demo`, {method:'POST'}),
+    filaChecker: () => request<JornadaPersistida[]>('/documentos/jornada/checker'),
+    decidirDocumento: (id: number, decisao: 'aprovado' | 'rejeitado', observacao: string) => request<JornadaPersistida>(`/documentos/${id}/decisao-checker`, {method:'POST', body:JSON.stringify({decisao, observacao})}),
     concessionariasElegiveis: () => request<{id_concessionaria: number; nome: string; ativo: boolean}[]>('/concessionarias/elegiveis/associacao'),
     resolverConcessionaria: (id: number, id_concessionaria: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/resolver-concessionaria`, { method: 'POST', body: JSON.stringify({id_concessionaria}) }),
     revalidarExtracao: (id: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/revalidar`, { method: 'POST' }),

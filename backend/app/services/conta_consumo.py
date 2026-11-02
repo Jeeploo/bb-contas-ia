@@ -21,7 +21,11 @@ class ContaConsumoService(BaseService[ContaConsumo, ContaConsumoCreate, ContaCon
         Não atualiza contas preexistentes nem usa valores cadastrais como extração.
         """
         document = extraction.documento
-        if document.id_conta is not None or extraction.resultado_validacao_documental != "VALIDO":
+        if (document.id_conta is not None or extraction.resultado_validacao_documental != "VALIDO"
+                or not extraction.evidencias_validacao_documental.get("id_concessionaria")):
+            return document.conta
+        from app.services.validacao_documental import politica_revisao
+        if politica_revisao(extraction)["bloqueia_calculo"]:
             return document.conta
         from datetime import date
         from decimal import Decimal

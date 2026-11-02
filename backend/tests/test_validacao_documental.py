@@ -96,7 +96,7 @@ class ValidacaoDocumentalTests(unittest.TestCase):
         self.assertEqual(self.avaliar(concessionaria=None), 'EVIDENCIA_INSUFICIENTE')
 
     def test_vinculo_desconhecido_nao_e_divergencia(self):
-        self.assertEqual(self.avaliar(unidade_consumidora='999'), 'EVIDENCIA_INSUFICIENTE')
+        self.assertEqual(self.avaliar(unidade_consumidora='999'), 'VALIDO')
 
     def test_um_prefixo_automatico(self):
         self.assertEqual(self.ctx.resolver(1).id_prefixo, 1)
@@ -226,7 +226,7 @@ class ValidacaoDocumentalTests(unittest.TestCase):
         self.assertEqual(extraction.resultado_validacao_documental,'EVIDENCIA_INSUFICIENTE')
 
     def test_identificador_preserva_zeros(self):
-        self.assertEqual(self.avaliar(unidade_consumidora='1'),'EVIDENCIA_INSUFICIENTE')
+        self.assertEqual(self.avaliar(unidade_consumidora='1'),'VALIDO')
 
     def test_endereco_sozinho_nao_comprova(self):
         self.assertEqual(self.avaliar(unidade_consumidora=None,endereco_unidade='Mesmo endereço'),'EVIDENCIA_INSUFICIENTE')
@@ -260,7 +260,8 @@ class ValidacaoDocumentalTests(unittest.TestCase):
         unit=self.s.scalar(select(models.UnidadeConsumidora).where(
             models.UnidadeConsumidora.id_concessionaria==1,models.UnidadeConsumidora.unidade_consumidora=='001'))
         self.ctx.atualizar_unidade(unit.id_unidade_consumidora,UnidadeConsumidoraUpdate(ativo=False))
-        self.assertEqual(extraction.resultado_validacao_documental,'EVIDENCIA_INSUFICIENTE')
+        self.assertEqual(extraction.resultado_validacao_documental,'VALIDO')
+        self.assertEqual(extraction.evidencias_validacao_documental['pendencias'][0]['tipo'], 'VINCULO_UNIDADE')
 
     def test_uf_inexistente_nao_prova_outra_regiao(self):
         self.assertEqual(self.avaliar(uf='ZZ'),'EVIDENCIA_INSUFICIENTE')

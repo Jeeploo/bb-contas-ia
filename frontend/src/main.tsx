@@ -5,6 +5,7 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { useAuth } from "./auth/AuthContext";
 import { AppShell } from "./components/payment/AppShell";
 import { DemoAccess } from "./pages/DemoAccess";
+import { Aprovacoes } from "./pages/Aprovacoes";
 import { PaymentJourney } from "./pages/PaymentJourney";
 import { InvoiceHistory } from "./pages/InvoiceHistory";
 import "./styles.css";
@@ -21,6 +22,7 @@ function App() {
         />
         <Route element={session ? <AppShell /> : <Navigate to="/" replace />}>
           <Route path="pagamentos" element={<PaymentJourney />} />
+          <Route path="aprovacoes" element={<Aprovacoes />} />
           <Route path="faturas" element={<InvoiceHistory />} />
           <Route
             path="relatorios"

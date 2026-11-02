@@ -164,7 +164,7 @@
     "nome": "concessionaria-desconhecida",
     "usuario": "maker",
     "prefixo": "REC-DEMO",
-    "esperado": "EVIDENCIA_INSUFICIENTE",
+    "esperado": "VALIDO",
     "leitura": {
       "tipo_documento": "CONTA_ENERGIA",
       "concessionaria": "EMPRESA DESCONHECIDA DEMO",

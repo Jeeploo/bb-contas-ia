@@ -50,7 +50,10 @@ class CoefficientStrategy:
         with localcontext() as ctx:
             ctx.prec = 40
             result = base / decimal_value(parameters["coeficiente"])
-        return memory("COEFICIENTE", base, result, parameters, [], components)
+        calculation = memory("COEFICIENTE", base, result, parameters, [], components)
+        calculation.update(operacao="DIVISAO", coeficiente=str(parameters["coeficiente"]),
+                           formula="valor_original / coeficiente", expressao=f"{base} / {parameters['coeficiente']}")
+        return calculation
 
 
 class DetailedCompositionStrategy:
@@ -94,7 +97,7 @@ def memory(strategy, base, result, parameters, considered, ignored):
                 arredondamento="ROUND_HALF_UP", casas_decimais=2,
                 componentes_considerados=considered,
                 componentes_ignorados=[dict(id=c.id, tipo=c.tipo, valor=str(c.valor) if c.valor is not None else None) for c in ignored],
-                resultado_sem_arredondamento=str(result), resultado=str(rounded))
+                resultado_sem_arredondamento=str(result), resultado=str(rounded), diferenca=str(rounded - base))
 
 
 STRATEGIES = {"VALOR_INTEGRAL": IntegralValueStrategy(), "COEFICIENTE": CoefficientStrategy(),

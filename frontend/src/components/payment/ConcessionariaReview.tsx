@@ -7,10 +7,11 @@ export function ConcessionariaReview({extracao, nome, busy, onAssociate, onCalcu
   const pending = extracao.pendencias?.some(p => p.tipo === 'CORRESPONDENCIA_CONCESSIONARIA');
   return <section className="card validation-card">
     <h2>Documento enviado para validação</h2>
-    {pending ? <><Alert variant="review"><strong>Pendência cadastral</strong><p>Concessionária sem correspondência</p></Alert>
+    {pending ? <><Alert variant="warning"><strong>Pendência cadastral</strong><p>Concessionária sem correspondência</p></Alert>
       <p>Nome extraído do documento: <strong>{nome}</strong></p><p>Correspondência cadastral: Não encontrada</p>
-      <button className="primary" disabled={busy} onClick={onAssociate}>Associar concessionária</button></>
-      : <><Alert variant="info"><strong>Correspondência cadastral resolvida</strong></Alert>
+      <p>Pendência que não impede continuar. A associação é opcional para a demonstração.</p>
+      <button disabled={busy} onClick={onAssociate}>Associar concessionária (opcional)</button></>
+      : <><Alert variant="info"><strong>Dados documentais disponíveis</strong></Alert>
         <p>Nome extraído do documento: <strong>{nome}</strong></p>
         <p>Concessionária: {String(extracao.evidencias_validacao_documental?.nome_concessionaria ?? '')}</p></>}
     <DocumentaryAlerts extracao={{...extracao, pendencias: extracao.pendencias?.filter(p => p.tipo !== "CORRESPONDENCIA_CONCESSIONARIA")}} concessionaria={nome} confirmado />

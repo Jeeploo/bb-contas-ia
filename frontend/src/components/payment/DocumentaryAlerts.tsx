@@ -12,8 +12,13 @@ export function Alert({ variant, children }: { variant: "info" | "warning" | "re
 export function DocumentaryAlerts({ extracao, concessionaria, confirmado = false }: { extracao: ExtracaoInteligente; concessionaria?: string; confirmado?: boolean }) {
   const pendencias = extracao.pendencias ?? [];
   if (!pendencias.length) return <Alert variant={extracao.resultado_validacao_documental === "VALIDO" ? "info" : "review"}>{extracao.motivo_validacao_documental ?? documentaryMessages[extracao.resultado_validacao_documental ?? "EVIDENCIA_INSUFICIENTE"]}</Alert>;
-  return <section aria-label="Pendências documentais"><h3>Pendência encontrada</h3>{pendencias.map((p, i) => <Alert variant="review" key={`${p.tipo}-${p.campo ?? i}`}>
-    <strong>{p.mensagem}</strong>
-    {p.tipo === "CORRESPONDENCIA_CONCESSIONARIA" && <><p>{concessionaria}</p><p>{(confirmado || extracao.situacao_validacao === "revisao_cadastral_pendente") ? "Os dados do documento foram confirmados, mas a concessionária ainda precisa ser associada ao cadastro." : "Confirme os dados do documento. A concessionária ainda precisa ser associada ao cadastro."}</p><p>A fatura pode ser enviada para revisão cadastral.</p></>}
-  </Alert>)}</section>;
+  return <section aria-label="Pendências documentais"><h3>Pendências e alertas</h3>{pendencias.map((p, i) => {
+    const blocking = p.bloqueia_envio_validacao || p.bloqueia_calculo;
+    return <Alert variant={blocking ? "error" : "warning"} key={`${p.tipo}-${p.campo ?? i}`}>
+      <strong>{blocking ? 'Erro bloqueante' : 'Pendência cadastral'}</strong><p>{p.mensagem}</p>
+      {p.tipo === "CORRESPONDENCIA_CONCESSIONARIA" && <p>{concessionaria}</p>}
+      {!blocking && <><p>A informação foi preservada e poderá ser revisada posteriormente.</p><p>Pendência que não impede continuar.</p></>}
+      {confirmado && !blocking && <p>Dados documentais confirmados.</p>}
+    </Alert>;
+  })}</section>;
 }

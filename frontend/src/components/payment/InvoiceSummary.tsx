@@ -1,7 +1,8 @@
+import { apiBase } from "../../api/config";
 import { FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import type { DadoExtraido, ItemExtraido, Calculo } from "../../types";
+import type { DadoExtraido, ItemExtraido, ResultadoCalculo as Calculo } from "../../types";
 import { formatCompetenciaDisplay } from "../../utils/competencia";
 import { money } from "../ui";
 export const labels: Record<string, string> = {
@@ -58,7 +59,7 @@ export function InvoiceSummary({ fields }: { fields: SummaryField[] }) {
     </dl>
   );
 }
-export function DocumentPreview({ file }: { file?: File }) {
+export function DocumentPreview({ file, documentId, documentFormat }: { file?: File; documentId?: number; documentFormat?: string }) {
   const [url, setUrl] = useState("");
   useEffect(() => {
     if (!file) return;
@@ -66,15 +67,17 @@ export function DocumentPreview({ file }: { file?: File }) {
     setUrl(value);
     return () => URL.revokeObjectURL(value);
   }, [file]);
+  const previewUrl = url || (documentId ? `${apiBase(import.meta.env.VITE_API_URL)}/documentos/${documentId}/arquivo` : "");
+  const imageDocument = file?.type.startsWith("image/") || ["png", "jpg", "jpeg"].includes(documentFormat ?? "");
   return (
     <section className="card document-preview">
       <h3>Documento enviado</h3>
-      {url && file?.type.startsWith("image/") ? <img className="preview-image" src={url} alt="Fatura enviada" /> : url ? <object className="preview-pdf" data={url + "#toolbar=0&navpanes=0&view=Fit"} type="application/pdf"><p><FileText aria-hidden="true" /> Prévia indisponível. Abra o documento original.</p></object> : <p><FileText aria-hidden="true" /> Prévia indisponível. Abra o documento original.</p>}
+      {previewUrl && imageDocument ? <img className="preview-image" src={previewUrl} alt="Fatura enviada" /> : previewUrl ? <object className="preview-pdf" data={previewUrl + "#toolbar=0&navpanes=0&view=Fit"} type="application/pdf"><p><FileText aria-hidden="true" /> Prévia indisponível. Abra o documento original.</p></object> : <p><FileText aria-hidden="true" /> Prévia indisponível. Abra o documento original.</p>}
       <small className="preview-caption">Use “Abrir documento” para consultar a fatura original.</small>
-      <strong>{file?.name ?? "Documento indisponível nesta sessão"}</strong>
-      <p>{file?.type.startsWith("image/") ? "Imagem" : "PDF"} da fatura</p>
-      {url && (
-        <a className="button" href={url} target="_blank" rel="noreferrer">
+      <strong>{file?.name ?? `Fatura #${documentId ?? ""}`}</strong>
+      <p>{imageDocument ? "Imagem" : "PDF"} da fatura</p>
+      {previewUrl && (
+        <a className="button" href={previewUrl} target="_blank" rel="noreferrer">
           Abrir documento
         </a>
       )}
@@ -86,10 +89,7 @@ export function CalculationSummary({ calculo }: { calculo?: Calculo }) {
     <section className="calculation">
       <div>
         <span>
-          {calculo &&
-          Number(calculo.valor_inicial) !== Number(calculo.valor_calculado)
-            ? "Valor da fatura"
-            : "Valor da fatura"}
+          Valor original
         </span>
         <strong>
           {calculo ? money(calculo.valor_inicial) : "Aguardando revisão"}
@@ -101,9 +101,18 @@ export function CalculationSummary({ calculo }: { calculo?: Calculo }) {
           {calculo ? money(calculo.valor_calculado) : "Aguardando revisão"}
         </strong>
       </div>
+      {calculo && <p>Diferença: {calculo.memoria_calculo?.diferenca !== undefined ? money(calculo.memoria_calculo.diferenca) : "Não informada"}</p>}
+      {calculo?.memoria_calculo?.nome_regra && <p>Regra aplicada: <strong>{calculo.memoria_calculo.nome_regra}</strong></p>}
+      {calculo?.memoria_calculo?.operacao === 'DIVISAO' && <>
+        <p>Coeficiente: {String(calculo.memoria_calculo.coeficiente).replace('.', ',')}</p>
+        <p>Operação aplicada: {money(calculo.valor_inicial)} / {String(calculo.memoria_calculo.coeficiente).replace('.', ',')}</p>
+      </>}
+      {calculo?.memoria_calculo?.demonstrativa && calculo.memoria_calculo.aviso_demo && <p className="hint">{calculo.memoria_calculo.aviso_demo}</p>}
+      {calculo?.memoria_calculo?.correspondencia_cadastral_confirmada === false && <p>Regra vigente do prefixo aplicada aos dados documentais confirmados; correspondência cadastral pendente.</p>}
       {calculo?.memoria_calculo && (
         <details>
           <summary>Ver detalhes do cálculo</summary>
+          <p>Regra #{calculo.id_regra} · {calculo.memoria_calculo.estrategia} · Coeficiente: {String(calculo.memoria_calculo.parametros.coeficiente ?? 'Não se aplica')}</p>
           <p>
             Valor base: {money(calculo.memoria_calculo.valor_base)} · Resultado:{" "}
             {money(calculo.memoria_calculo.resultado)}
@@ -240,10 +249,12 @@ export function EditInvoiceModal({
   );
 }
 export function ConfirmationCard({
+  situacao,
   fields,
   calculo,
   onReset,
 }: {
+  situacao?: string;
   fields: SummaryField[];
   calculo: Calculo;
   onReset: () => void;
@@ -251,11 +262,11 @@ export function ConfirmationCard({
   return (
     <section className="card confirmation">
       <div className="success-icon">✓</div>
-      <h2>Fatura processada com sucesso!</h2>
-      <p>A fatura foi processada e encaminhada para continuidade do fluxo.</p>
+      <h2>Processamento concluído</h2>
+      <p>{situacao === "confirmada_checker" ? "Confirmação final registrada pelo Checker." : situacao === "rejeitada_checker" ? "Fatura rejeitada pelo Checker. Consulte a decisão na área Checker." : "Fatura pronta para conferência e confirmação final pelo Checker."}</p>
       <p>Esta demonstração não realiza pagamento bancário.</p>
       <InvoiceSummary
-        fields={[{ label: "Identificador", value: String(calculo.id_calculo) }, { label: "Valor calculado", value: money(calculo.valor_calculado) }, { label: "Data/hora do cálculo", value: new Date(calculo.data_calculo + (/Z$|[+-]\d{2}:\d{2}$/.test(calculo.data_calculo) ? "" : "Z")).toLocaleString("pt-BR") }, ...fields.filter((f) =>
+        fields={[{ label: calculo.id_calculo ? "Identificador do cálculo" : "Identificador da leitura", value: String(calculo.id_calculo ?? ("id_extracao" in calculo ? calculo.id_extracao : "")) }, { label: "Valor calculado", value: money(calculo.valor_calculado) }, { label: "Data/hora do cálculo", value: new Date(calculo.data_calculo + (/Z$|[+-]\d{2}:\d{2}$/.test(calculo.data_calculo) ? "" : "Z")).toLocaleString("pt-BR") }, ...fields.filter((f) =>
           [
             "Tipo da fatura",
             "Concessionária",
@@ -264,8 +275,9 @@ export function ConfirmationCard({
           ].includes(f.label),
         )]}
       />
+      <CalculationSummary calculo={calculo} />
       <button className="primary" onClick={onReset}>
-        Processar outra fatura
+        Nova fatura
       </button>
     </section>
   );

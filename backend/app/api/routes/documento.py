@@ -1,3 +1,5 @@
+from typing import Literal
+from pydantic import BaseModel
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response, UploadFile, status
@@ -36,6 +38,66 @@ def list_entities(
 def upload_inicial(session: DatabaseSession, file: UploadFile, contexto=Depends(get_contexto_operacional)):
     return ProcessamentoDocumentoService(session).upload_inicial(
         file.file, file.filename or "", file.content_type or "", contexto)
+
+
+class JornadaRead(BaseModel):
+    documento: DocumentoRead | None
+    processamento: ProcessamentoInteligenteRead | None
+    calculo: dict | None
+
+
+class DecisaoChecker(BaseModel):
+    decisao: Literal['aprovado', 'rejeitado']
+    observacao: str = ''
+
+
+@router.get('/jornada/atual', response_model=JornadaRead)
+def retomar_jornada(session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    return JornadaDemoService(session).retomar(contexto)
+
+
+@router.get('/jornada/checker', response_model=list[JornadaRead])
+def fila_checker(session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    return JornadaDemoService(session).fila(contexto)
+
+
+@router.get('/{id_documento}/jornada', response_model=JornadaRead)
+def jornada_documento(id_documento: int, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    service = JornadaDemoService(session)
+    document, extraction, _ = service.obter(id_documento, contexto)
+    return service.resposta(document, extraction)
+
+
+@router.post('/{id_documento}/calcular-demo')
+def calcular_demo(id_documento: int, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    return JornadaDemoService(session).calcular(id_documento, contexto)
+
+
+@router.post('/{id_documento}/nova-fatura', status_code=204)
+def nova_fatura(id_documento: int, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    JornadaDemoService(session).nova(id_documento, contexto)
+    return Response(status_code=204)
+
+
+@router.post('/{id_documento}/decisao-checker', response_model=JornadaRead)
+def decidir_checker(id_documento: int, data: DecisaoChecker, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    return JornadaDemoService(session).decidir(id_documento, contexto, data.decisao, data.observacao)
+
+
+@router.get('/{id_documento}/arquivo')
+def arquivo_documento(id_documento: int, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    from app.processing.storage import storage_for_document, document_storage_key
+    document, _, _ = JornadaDemoService(session).obter(id_documento, contexto)
+    mime = {'pdf': 'application/pdf', 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg'}.get(document.formato, 'application/octet-stream')
+    return Response(storage_for_document(document).read(document_storage_key(document)), media_type=mime,
+        headers={'Cache-Control': 'private, no-store', 'Content-Disposition': f'inline; filename="fatura-{document.id_documento}.{document.formato}"'})
 
 
 @router.get("/{id}", response_model=DocumentoRead)

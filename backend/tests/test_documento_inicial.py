@@ -67,7 +67,7 @@ class DocumentoInicialTests(ApiTestCase):
     def test_decisoes_sem_inventar_conta(self):
         for changes, expected in [({'tipo_documento':'OUTRO'}, 'DOCUMENTO_NAO_SUPORTADO'),
             ({'uf':'SP'}, 'REGIAO_NAO_SUPORTADA'),
-            ({'concessionaria':'Concessionária real sem cadastro'}, 'EVIDENCIA_INSUFICIENTE'),
+            ({'concessionaria':'Concessionária real sem cadastro'}, 'VALIDO'),
             ({'municipio':'Olinda'}, 'DIVERGENCIA_PREFIXO')]:
             with self.subTest(expected=expected):
                 self.configure(**changes)
@@ -116,7 +116,7 @@ class DocumentoInicialTests(ApiTestCase):
         self.assertEqual(response.json()['valor_extraido'],'09/2026')
         self.assertEqual(response.json()['valor_validado'],'2026-09')
 
-    def test_envio_cadastral_preserva_documento_e_bloqueio_calculo(self):
+    def test_envio_cadastral_preserva_documento_sem_bloquear_calculo(self):
         nome = 'COMPANHIA ENERGÉTICA DE PERNAMBUCO'
         self.configure(concessionaria=nome)
         result = self.processar(self.upload()).json()
@@ -129,9 +129,9 @@ class DocumentoInicialTests(ApiTestCase):
         response = self.client.post(f"/api/v1/extracoes_inteligentes/{ext['id_extracao']}/enviar-validacao")
         self.assertEqual(response.status_code, 200, response.text)
         sent = response.json()
-        self.assertEqual(sent['situacao_validacao'], 'revisao_cadastral_pendente')
-        self.assertEqual(sent['resultado_validacao_documental'], 'EVIDENCIA_INSUFICIENTE')
-        self.assertTrue(sent['bloqueia_calculo'])
+        self.assertEqual(sent['situacao_validacao'], 'validada')
+        self.assertEqual(sent['resultado_validacao_documental'], 'VALIDO')
+        self.assertFalse(sent['bloqueia_calculo'])
         self.assertIsNone(sent['evidencias_validacao_documental'].get('id_concessionaria'))
         self.assertEqual(sent['historico_validacao_documental'][-1]['evento'], 'ENVIADO_PARA_VALIDACAO')
         fields = self.client.get('/api/v1/dados_extraidos').json()
@@ -141,12 +141,6 @@ class DocumentoInicialTests(ApiTestCase):
         doc = self.client.get(f"/api/v1/documentos/{result['documento']['id_documento']}").json()
         self.assertIsNone(doc['id_conta'])
         self.provider.interpretar_documento.assert_called_once()
-        # Mesmo um documento ligado a conta preexistente não libera o cálculo.
-        self.client.patch(f"/api/v1/documentos/{doc['id_documento']}", json={'id_conta':1})
-        calculation = self.client.post('/api/v1/contas_consumo/1/calcular')
-        self.assertEqual(calculation.status_code, 422, calculation.text)
-        self.assertIn('pendências', calculation.json()['detail'])
-
     def test_envio_bloqueado_por_impedimentos_documentais(self):
         for changes in ({'tipo_documento':'OUTRO'}, {'uf':'SP'},
                         {'concessionaria':'Sem cadastro', 'unidade_consumidora':None},

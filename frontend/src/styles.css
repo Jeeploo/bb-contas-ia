@@ -338,6 +338,13 @@ main {
 .calculation strong {
   font-size: 21px;
 }
+.calculation > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.calculation > p strong {
+  font-size: inherit;
+}
 .calculation details {
   flex-basis: 100%;
 }

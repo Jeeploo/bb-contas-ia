@@ -4,7 +4,7 @@ export function PaymentStepper({ step }: { step: number }) {
       {[
         "Upload da fatura",
         "Resumo da fatura",
-        "Validação",
+        "Validação e cálculo",
         "Processamento concluído",
       ].map((label, i) => (
         <li

@@ -29,8 +29,11 @@ def associar(session, extraction, id_concessionaria, contexto):
     from app.services.exceptions import ContextoOperacionalError
     from app.services.validacao_documental import ValidacaoDocumentalService
     from app.services.conta_consumo import ContaConsumoService
-    if extraction.situacao_validacao != "revisao_cadastral_pendente":
+    if extraction.situacao_validacao not in {"revisao_cadastral_pendente", "validada"}:
         raise ContextoOperacionalError("Documento não está em revisão cadastral pendente")
+    from app.services.jornada_demo import evento
+    if evento(extraction, 'CALCULO_DEMO'):
+        raise ContextoOperacionalError("Processamento concluído; a associação não pode alterar o cálculo conferido")
     concessionaria = session.get(Concessionaria, id_concessionaria)
     if concessionaria is None or not concessionaria.ativo:
         raise ContextoOperacionalError("Concessionária inexistente ou inativa")

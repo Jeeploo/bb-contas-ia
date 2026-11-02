@@ -37,12 +37,12 @@ test('API URL explícita, HTTPS e ausência de fallback local', () => {
 import { DocumentaryAlerts, canSubmitReview, Alert } from '../src/components/payment/DocumentaryAlerts';
 import type { ExtracaoInteligente } from '../src/types';
 const review = { id_extracao:1, data_processamento:'', nivel_confianca:null, situacao_validacao:'pendente', id_documento:1,
-  resultado_validacao_documental:'EVIDENCIA_INSUFICIENTE', permite_envio_validacao:true, bloqueia_calculo:true,
-  pendencias:[{tipo:'CORRESPONDENCIA_CONCESSIONARIA', mensagem:'Concessionária sem correspondência cadastral', bloqueia_envio_validacao:false, bloqueia_calculo:true}],
+  resultado_validacao_documental:'EVIDENCIA_INSUFICIENTE', permite_envio_validacao:true, bloqueia_calculo:false,
+  pendencias:[{tipo:'CORRESPONDENCIA_CONCESSIONARIA', mensagem:'Concessionária sem correspondência cadastral', bloqueia_envio_validacao:false, bloqueia_calculo:false}],
 } satisfies ExtracaoInteligente;
-test('pendência cadastral usa mensagem específica e alerta review', () => {
+test('pendência cadastral usa mensagem específica e alerta amarelo não bloqueante', () => {
   const html = renderToStaticMarkup(<DocumentaryAlerts extracao={review} concessionaria="COMPANHIA ENERGÉTICA DE PERNAMBUCO" />);
-  for (const text of ['documentary-alert-review','Pendência encontrada','Concessionária sem correspondência cadastral','COMPANHIA ENERGÉTICA DE PERNAMBUCO','A fatura pode ser enviada para revisão cadastral.']) assert.ok(html.includes(text));
+  for (const text of ['documentary-alert-warning','Pendências e alertas','Concessionária sem correspondência cadastral','COMPANHIA ENERGÉTICA DE PERNAMBUCO','Pendência que não impede continuar.']) assert.ok(html.includes(text));
   assert.equal(canSubmitReview(review), true);
 });
 test('envio obedece contrato estruturado sem interpretar texto livre', () => {
@@ -52,7 +52,8 @@ test('envio obedece contrato estruturado sem interpretar texto livre', () => {
 });
 test('múltiplas pendências aparecem separadamente', () => {
   const html = renderToStaticMarkup(<DocumentaryAlerts extracao={{...review, pendencias:[...review.pendencias,{tipo:'CAMPO_OBRIGATORIO', mensagem:'Unidade consumidora ausente', bloqueia_envio_validacao:true, bloqueia_calculo:true}]}} />);
-  assert.equal((html.match(/documentary-alert-review/g) ?? []).length, 2);
+  assert.equal((html.match(/documentary-alert-warning/g) ?? []).length, 1);
+  assert.equal((html.match(/documentary-alert-error/g) ?? []).length, 1);
   assert.ok(html.includes('Unidade consumidora ausente'));
 });
 test('alertas oferecem quatro variantes centralizadas', () => {
@@ -75,7 +76,8 @@ test('envio e revisão cadastral permanecem na etapa 3 sem conclusão visual', (
 test('validação exibe nome extraído e ação de associação', () => {
   const html=renderToStaticMarkup(<ConcessionariaReview extracao={review} nome="COMPANHIA ENERGÉTICA DE PERNAMBUCO" busy={false} onAssociate={()=>{}} onCalculate={()=>{}} />);
   for (const text of ['Documento enviado para validação','Pendência cadastral','Associar concessionária','COMPANHIA ENERGÉTICA DE PERNAMBUCO']) assert.ok(html.includes(text));
-  assert.ok(!html.includes('Calcular fatura'));
+  assert.ok(html.includes('Calcular fatura'));
+  assert.ok(html.includes('(opcional)'));
 });
 test('modal lista cadastros e preserva nome extraído', () => {
   const html=renderToStaticMarkup(<AssociarConcessionariaModal nome="COMPANHIA ENERGÉTICA DE PERNAMBUCO" opcoes={[{id_concessionaria:7,nome:'Cadastro oficial',ativo:true}]} selected={7} busy={false} error="" onSelect={()=>{}} onClose={()=>{}} onConfirm={()=>{}} />);
@@ -85,7 +87,7 @@ test('sucesso exibe cadastro resolvido e cálculo depende de elegibilidade', () 
   const resolved={...review,situacao_validacao:'validada',pendencias:[],bloqueia_calculo:false,evidencias_validacao_documental:{nome_concessionaria:'Cadastro oficial'}};
   assert.equal(journeyStep(resolved),3);
   const html=renderToStaticMarkup(<ConcessionariaReview extracao={resolved} nome="Nome original" busy={false} onAssociate={()=>{}} onCalculate={()=>{}} />);
-  for (const text of ['Correspondência cadastral resolvida','Cadastro oficial','Nome original','Calcular fatura']) assert.ok(html.includes(text));
+  for (const text of ['Dados documentais disponíveis','Cadastro oficial','Nome original','Calcular fatura']) assert.ok(html.includes(text));
   assert.ok(!html.includes('Associar concessionária'));
 });
 
@@ -131,4 +133,34 @@ test('erro após upload mantém documento recebido concluído', () => {
   assert.ok(html.includes('class="processing-activity complete"'));
   assert.ok(html.includes('Documento recebido<span class="sr-only"> — concluída'));
   assert.ok(html.includes('Extraindo informações<span class="sr-only"> — interrompida'));
+});
+
+import { CalculationSummary, ConfirmationCard } from '../src/components/payment/InvoiceSummary';
+import type { Calculo } from '../src/types';
+const calculation = {id_calculo:1,id_conta:1,id_regra:1,data_calculo:'2026-11-02T12:00:00Z',situacao:'validado',valor_inicial:'100.00',valor_calculado:'90.00',memoria_calculo:{estrategia:'COEFICIENTE',valor_base:'100.00',resultado:'90.00',diferenca:'-10.00',parametros:{coeficiente:'1.111111'},componentes_considerados:[],componentes_ignorados:[],resultado_sem_arredondamento:'90',id_perfil:1,id_regra:1,versao_regra:'1',id_extracao:1,competencia:'2026-09'}} satisfies Calculo;
+test('stepper reconstrói resumo, validação e conclusão a partir do backend', () => {
+  assert.equal(journeyStep(review), 2);
+  assert.equal(journeyStep({...review,situacao_validacao:'validada'}), 3);
+  assert.equal(journeyStep({...review,situacao_validacao:'processamento_concluido'}, calculation), 4);
+  assert.equal(journeyStep({...review,situacao_validacao:'revisao_cadastral_pendente'}, calculation), 4);
+  assert.notEqual(journeyStep({...review,bloqueia_calculo:true}, calculation), 4);
+});
+test('resultado mostra base, diferença, regra e memória, e conclusão oferece Nova fatura', () => {
+  const summary=renderToStaticMarkup(<CalculationSummary calculo={calculation} />);
+  for (const text of ['100,00','90,00','Diferença:','10,00','COEFICIENTE','1.111111','Ver detalhes do cálculo']) assert.ok(summary.includes(text),text);
+  const html=renderToStaticMarkup(<ConfirmationCard fields={[]} calculo={calculation} onReset={()=>{}} />);
+  for (const text of ['Processamento concluído','Checker','Nova fatura']) assert.ok(html.includes(text));
+});
+test('unidade sem vínculo preserva dados e permite continuar', () => {
+  const e={...review,pendencias:[{tipo:'VINCULO_UNIDADE',mensagem:'Unidade consumidora sem vínculo cadastral ativo.',bloqueia_envio_validacao:false,bloqueia_calculo:false}]};
+  assert.equal(canSubmitReview(e),true);
+  const html=renderToStaticMarkup(<DocumentaryAlerts extracao={e} />);
+  for (const text of ['documentary-alert-warning','A informação foi preservada','Pendência que não impede continuar.']) assert.ok(html.includes(text));
+  assert.ok(!html.includes('documentary-alert-error'));
+});
+
+test('regra DEMO apresenta divisão, coeficiente, diferença e aviso de escopo específico', () => {
+  const demo={...calculation,valor_inicial:'736.53',valor_calculado:'813.40',memoria_calculo:{...calculation.memoria_calculo,valor_base:'736.53',resultado:'813.40',diferenca:'76.87',parametros:{coeficiente:'0.9055'},coeficiente:'0.9055',operacao:'DIVISAO',expressao:'736.53 / 0.9055',nome_regra:'Regra DEMO — Coeficiente 0,9055',demonstrativa:true,aviso_demo:'Regra demonstrativa baseada em um caso real de prefixo específico. Não representa uma regra financeira aplicável a todos os prefixos do Banco do Brasil.'}};
+  const html=renderToStaticMarkup(<CalculationSummary calculo={demo} />);
+  for (const text of ['736,53','813,40','76,87','Regra DEMO — Coeficiente 0,9055','Coeficiente: 0,9055',' / ','Operação aplicada:','Não representa uma regra financeira aplicável a todos os prefixos do Banco do Brasil.']) assert.ok(html.includes(text),text);
 });

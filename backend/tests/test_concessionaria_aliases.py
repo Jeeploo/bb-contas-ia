@@ -49,7 +49,7 @@ class AliasTests(unittest.TestCase):
         self.alias(); self.alias(2)
         e = self.extraction()
         self.assertNotIn('id_concessionaria', e.evidencias_validacao_documental)
-        self.assertTrue(politica_revisao(e)['bloqueia_calculo'])
+        self.assertFalse(politica_revisao(e)['bloqueia_calculo'])
 
     def test_nome_oficial_e_alias_conflitantes(self):
         self.s.get(models.Concessionaria, 2).razao_social = self.nome
@@ -89,11 +89,11 @@ class AliasTests(unittest.TestCase):
         e = self.extraction(); self.alias(); self.associate(e)
         self.assertEqual(self.s.scalar(select(func.count()).select_from(models.ConcessionariaAlias)),1)
 
-    def test_outra_pendencia_bloqueia_calculo(self):
+    def test_unidade_sem_vinculo_nao_bloqueia_calculo(self):
         e = self.extraction(unidade_consumidora='999')
         self.associate(e)
-        self.assertTrue(politica_revisao(e)['bloqueia_calculo'])
-        self.assertEqual(e.situacao_validacao,'revisao_cadastral_pendente')
+        self.assertFalse(politica_revisao(e)['bloqueia_calculo'])
+        self.assertEqual(e.situacao_validacao,'validada')
 
     def test_manual_resolve_ambiguidade_apenas_neste_documento(self):
         self.alias(); self.alias(2)
