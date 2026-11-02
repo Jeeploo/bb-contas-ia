@@ -10,11 +10,13 @@ from app.main import app
 from app.core.config import settings
 from app.api.auth_dependencies import authorize_request, get_current_user
 from app.api.dependencies import get_contexto_operacional
-from app.models import Usuario
+from app.models import Usuario, Prefixo, UsuarioPrefixo
 from app.models.auth_demo import CredencialDemo, SessaoDemo
-from app.services.auth_demo import COOKIE, now, token_hash, verify_secret
+from app.services.auth_demo import COOKIE, now, token_hash, verify_secret, hash_secret
+from app.services.contexto_operacional import ContextoOperacionalService
+from app.schemas.vinculos import UsuarioPrefixoEntrada
 from scripts.seed_demo import prepare
-from scripts.prepare_demo_auth import provision, PROFILES
+from scripts.prepare_demo_auth import provision, PROFILES, demo_access
 from tests.test_api import ApiTestCase
 from tests.test_document_ai import raw, image_bytes
 from app.document_ai.base import InterpretacaoAI
@@ -26,8 +28,14 @@ class DemoAuthTests(ApiTestCase):
         super().setUp()
         with contextlib.redirect_stdout(io.StringIO()):
             self.manifest=prepare(self.client,'auth')
-        self.access={m:dict(senha='senha-exclusiva-de-teste',segundo_fator='123456') for m,_,_ in PROFILES}
+        config=patch.object(settings,'demo_auth_enabled',True);config.start();self.addCleanup(config.stop)
+        self.access={m: {key: value for key, value in values.items() if key != 'perfil'} for m, values in demo_access().items()}
         with Session(self.engine) as session:
+            # Fixture reproduz os vínculos já preparados do ambiente de apresentação.
+            for matricula, _, codes in PROFILES:
+                user = session.query(Usuario).filter_by(matricula=matricula).one()
+                entries = [UsuarioPrefixoEntrada(id_prefixo=session.query(Prefixo).filter_by(codigo_prefixo=code).one().id_prefixo, ativo=True, principal=i == 0) for i, code in enumerate(codes)]
+                ContextoOperacionalService(session).definir(user.id_usuario, entries)
             provision(session,self.access)
         p=self.manifest['prefixos']['REC-DEMO']['id_prefixo']
         c=self.client.post('/api/v1/contas_consumo',json=dict(numero_conta='AUTH',competencia='2026-09',data_vencimento='2026-10-20',valor_original='736.53',categoria='energia',situacao='pendente',id_prefixo=p,id_concessionaria=self.manifest['concessionarias']['energia']['id_concessionaria'])).json()
@@ -35,13 +43,26 @@ class DemoAuthTests(ApiTestCase):
         self.order=self.client.post('/api/v1/ordens_pagamento',json=dict(data_criacao='2026-10-06T12:00:00',data_prevista_pagamento='2026-10-20',valor_total='736.53',situacao='pendente',id_calculo=calc['id_calculo'],id_sistema=1,id_usuario_criador=self.manifest['usuarios']['maker']['id_usuario'])).json()
         for dependency in (authorize_request,get_current_user,get_contexto_operacional):
             app.dependency_overrides.pop(dependency,None)
-        config=patch.object(settings,'demo_auth_enabled',True);config.start();self.addCleanup(config.stop)
 
     def login(self, matricula='DEMO-maker', **changes):
         return self.client.post('/api/v1/auth/login',json=dict(matricula=matricula,senha=changes.get('senha',self.access[matricula]['senha']),segundo_fator=changes.get('segundo_fator',self.access[matricula]['segundo_fator'])))
 
     def decision(self, **changes):
         return self.client.post('/api/v1/aprovacoes',json=dict(id_ordem=self.order['id_ordem'],decisao='aprovado',data_hora='2026-11-01T12:00:00',**changes))
+
+    def test_cinco_perfis_com_credenciais_simples(self):
+        for i, (matricula, _, _) in enumerate(PROFILES, 1):
+            with self.subTest(matricula=matricula):
+                response = self.login(matricula, senha=str(i), segundo_fator=str(i))
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json()['usuario']['matricula'], matricula)
+
+    def test_config_e_preparacao_desabilitadas(self):
+        self.assertTrue(self.client.get('/api/v1/auth/config').json()['demo_mode'])
+        with patch.object(settings, 'demo_auth_enabled', False), Session(self.engine) as session:
+            self.assertFalse(self.client.get('/api/v1/auth/config').json()['demo_mode'])
+            with self.assertRaises(RuntimeError):
+                provision(session)
 
     def test_login_cookie_persistencia_logout_e_revogacao(self):
         self.assertEqual(self.client.get('/api/v1/contas_consumo').status_code,401)
@@ -135,6 +156,26 @@ class DemoAuthTests(ApiTestCase):
             before=[(c.id_usuario,c.senha_hash,c.fator_hash) for c in s.query(CredencialDemo).all()];count=s.query(Usuario).count()
             provision(s,self.access)
             self.assertEqual([(c.id_usuario,c.senha_hash,c.fator_hash) for c in s.query(CredencialDemo).all()],before);self.assertEqual(s.query(Usuario).count(),count)
+
+    def test_preparacao_migra_credenciais_sem_alterar_vinculos_ou_alcadas(self):
+        self.login()
+        token = self.client.cookies.get(COOKIE)
+        with Session(self.engine) as s:
+            users = [(u.id_usuario, u.id_alcada, u.id_prefixo) for u in s.query(Usuario).all()]
+            links = [(l.id_usuario, l.id_prefixo, l.ativo, l.principal) for l in s.query(UsuarioPrefixo).all()]
+            credential = s.get(CredencialDemo, self.manifest['usuarios']['maker']['id_usuario'])
+            credential.senha_hash = hash_secret('senha-anterior')
+            credential.fator_hash = hash_secret('codigo-anterior')
+            s.commit()
+            provision(s)
+            self.assertIsNone(s.get(SessaoDemo, token_hash(token)))
+            self.assertTrue(verify_secret('1', credential.senha_hash))
+            self.assertTrue(verify_secret('1', credential.fator_hash))
+            self.assertNotEqual(credential.senha_hash, credential.fator_hash)
+            self.assertEqual(users, [(u.id_usuario, u.id_alcada, u.id_prefixo) for u in s.query(Usuario).all()])
+            self.assertEqual(links, [(l.id_usuario, l.id_prefixo, l.ativo, l.principal) for l in s.query(UsuarioPrefixo).all()])
+        self.assertEqual(self.client.get('/api/v1/auth/sessao').status_code, 401)
+        self.assertEqual(self.login().status_code, 200)
 
     def test_ordem_usa_autor_da_sessao_e_recusa_calculo_externo(self):
         self.login()

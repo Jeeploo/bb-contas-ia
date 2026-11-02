@@ -229,8 +229,8 @@ main { width: 100%; max-width: 1360px; padding: 26px 38px 32px; }
 .access-input { display: flex; align-items: center; gap: 10px; margin-top: 7px; padding: 0 12px; border: 1px solid #d7dce4; border-radius: 5px; color: #9ca8b6; }
 .access-input:focus-within { outline: 2px solid var(--bb-blue); outline-offset: 2px; }
 .access-input svg { flex-shrink: 0; }
-.access-input input { border: 0; margin: 0; padding: 12px 0; border-radius: 0; background: transparent; font-size: 12px; font-weight: 400; }
-.access-input input:focus-visible { outline: none; }
+.access-input input, .access-input select { border: 0; margin: 0; padding: 12px 0; border-radius: 0; background: transparent; font-size: 12px; font-weight: 400; }
+.access-input input:focus-visible, .access-input select:focus-visible { outline: none; }
 .access-input input::placeholder { color: #8a96a5; }
 .access-card .hint { font-size: 10px; text-align: left; line-height: 1.5; margin: 24px 0 20px; color: #6c7c91; }
 .access-card .hint svg { vertical-align: middle; }

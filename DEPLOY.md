@@ -177,9 +177,9 @@ python scripts/seed_demo.py --ambiente-demo
 python scripts/prepare_demo_auth.py --ambiente-demo --arquivo /CAMINHO_PRIVADO/bb-demo-acessos.json
 ```
 
-O diretório privado precisa existir e ser acessível ao operador. O arquivo é criado com permissão `0600`; copiar seus acessos para um cofre/gestão segura de secrets e distribuir individualmente aos testadores autorizados. Não colocar o arquivo em `frontend/public`, `dist`, Git ou logs. Não depender de `/tmp` do host para sua guarda após a preparação. Reexecuções precisam do arquivo original; não trocam silenciosamente os hashes.
+O diretório privado precisa existir e ser acessível ao operador. O arquivo é criado com permissão `0600`; copiar seus acessos para um cofre/gestão segura de secrets e distribuir individualmente aos testadores autorizados. Não colocar o arquivo em `frontend/public`, `dist`, Git ou logs. Não depender de `/tmp` do host para sua guarda após a preparação. O comando gera os valores previsíveis 1/1 a 5/5. Reexecuções preservam hashes correspondentes; credenciais anteriores diferentes são substituídas, revogando as sessões dos usuários afetados.
 
-O seed mantém sua idempotência e dados fictícios. `--cenario` permite outro ensaio controlado. A preparação de autenticação reutiliza os cinco usuários existentes e aplica seus prefixos DEMO, sem duplicá-los ou mudar regras de alçada. Não executar seed em produção institucional. Nenhum desses passos roda em build/start/healthcheck.
+O seed mantém sua idempotência e dados fictícios. `--cenario` permite outro ensaio controlado. A preparação de autenticação reutiliza os cinco usuários existentes sem duplicá-los ou mudar vínculos de prefixos e regras de alçada. Os vínculos precisam estar previamente preparados e conferidos no banco DEMO. Não executar seed em produção institucional. Nenhum desses passos roda em build/start/healthcheck.
 
 ## 9. Autenticação DEMO e limitação de login
 
@@ -287,3 +287,20 @@ O filesystem efêmero deixa de bloquear novos documentos porque seus bytes ficam
 Os testes de preparação anteriores cobrem configuração por ambiente, CORS/preflight, Secure/SameSite/TTL, bloqueio de login e expiração, IP atrás de proxy não confiável, memória limitada, PORT, readiness sem vazamento, logs externos, modo DEMO e seed offline idempotente sem rede. A suíte anterior foi preservada. O build foi testado com `VITE_API_URL=https://api.exemplo.com`; essa URL é somente exemplo, não um serviço criado.
 
 Os testes de storage R2 usam cliente S3 e IA simulados, bloqueiam conexões de rede e cobrem salvamento/leitura, tamanho, erro sanitizado, chave/hash, idempotência, reprocessamento, seleção por documento, legado local, rollback e migration aditiva. Nenhuma chamada real R2, Gemini ou OpenAI foi executada nesta tarefa. **Resultado final:** 340 testes backend aprovados (322 anteriores + 18 novos), 3 testes frontend aprovados, lint/build aprovados e `git diff --check` sem erros. O build utilizou `VITE_API_URL=https://api.exemplo.com`. `pip check` não identificou dependências quebradas. A migration foi validada em SQLite isolado e aplicada somente no PostgreSQL local, sem acessar R2 ou mover arquivos. Não houve criação de bucket, conta externa, commit, push ou deploy.
+
+
+O login consulta `/api/v1/auth/config` para exibir os cinco perfis somente com
+`DEMO_MODE=true`; senha e 2º fator continuam separados. Mapeamento das credenciais:
+
+| Perfil | Matrícula | Senha | 2º fator |
+| --- | --- | --- | --- |
+| Maker Recife | DEMO-maker | 1 | 1 |
+| Maker Paulista | DEMO-maker-paulista | 2 | 2 |
+| Maker Multi-Prefixo | DEMO-maker-multi | 3 | 3 |
+| Checker | DEMO-checker | 4 | 4 |
+| Alçada reduzida | DEMO-limite-baixo | 5 | 5 |
+
+Com `DEMO_MODE=false`, a matrícula permanece como campo livre e o backend recusa
+login/sessão DEMO (503). Autenticação institucional continua pendente. O script
+exige tanto `DEMO_MODE=true` quanto `--ambiente-demo`; nada é provisionado
+automaticamente no início da aplicação.

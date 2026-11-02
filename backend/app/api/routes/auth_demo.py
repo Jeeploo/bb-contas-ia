@@ -23,6 +23,12 @@ class PrefixoAtivo(BaseModel):
     id_prefixo: int = Field(gt=0)
 
 
+@router.get('/config')
+def config(response: Response):
+    response.headers['Cache-Control'] = 'no-store'
+    return {'demo_mode': settings.demo_auth_enabled}
+
+
 @router.post('/login')
 def login(data: LoginDemo, request: Request, response: Response, session: Session = Depends(get_db)):
     if not settings.demo_auth_enabled:

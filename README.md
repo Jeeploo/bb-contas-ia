@@ -1,20 +1,103 @@
-# BB Contas IA — MVP web
+# BB Contas IA
 
-React, Vite, TypeScript, React Router e Lucide React. Cliente HTTP com fetch nativo.
-Backend FastAPI e PostgreSQL separados; fórmulas e regras permanecem no backend.
+MVP web para leitura inteligente, validação e processamento assistido de contas de consumo de unidades operacionais do Banco do Brasil.
 
-## Iniciar
+O escopo atual contempla energia elétrica e água/saneamento em documentos de Pernambuco, com leitura assistida por IA, validação determinística, revisão humana e contexto operacional por prefixo. O backend implementa controles Maker/Checker e alçadas. É um MVP de demonstração, sem pagamento bancário real e sem caráter de sistema bancário produtivo.
 
-Backend (ambiente e banco já configurados):
+## Arquitetura
+
+```text
+Frontend — React + Vite + TypeScript (Cloudflare Pages)
+    ↓ API HTTP
+Backend — FastAPI + Python (Render)
+    ├── PostgreSQL (Neon): dados estruturados
+    ├── Cloudflare R2: PDFs e imagens privados
+    └── Gemini: interpretação documental
+```
+
+O frontend apresenta a jornada e não executa regras financeiras. O backend concentra regras, validações e decisões críticas determinísticas; a IA interpreta os documentos.
+
+## Stack
+
+| Camada | Tecnologias |
+| --- | --- |
+| Frontend | React, Vite, TypeScript, React Router, Lucide React |
+| Backend | FastAPI, SQLAlchemy, Alembic, Pydantic, PostgreSQL |
+| Infraestrutura | Cloudflare Pages, Cloudflare R2, Render, Neon |
+| IA | Gemini como provider principal do ambiente publicado; abstração preparada para múltiplos providers |
+
+## Ambiente publicado
+
+- Frontend: [bb-contas-ia.pages.dev](https://bb-contas-ia.pages.dev)
+- API: [bb-contas-ia.onrender.com](https://bb-contas-ia.onrender.com)
+- Health: [/health](https://bb-contas-ia.onrender.com/health)
+
+O Render Free pode entrar em estado de inatividade; a primeira requisição pode demorar alguns segundos.
+
+## Login DEMO
+
+Com `DEMO_MODE=true`, o campo matrícula vira um seletor de perfil. Senha e 2º fator permanecem obrigatórios, e a autenticação continua sendo processada pelo backend. A sessão usa cookie HttpOnly e fornece identidade, prefixos autorizados e permissões. Maker/Checker e alçadas continuam validados no backend.
+
+As credenciais abaixo são deliberadamente fracas, exclusivas do ambiente demonstrativo e destinadas à apresentação pública do MVP. O 2º fator é um código de demonstração; essa autenticação não é adequada para produção.
+
+| Perfil | Senha | 2º fator |
+| --- | --- | --- |
+| Maker Recife | 1 | 1 |
+| Maker Paulista | 2 | 2 |
+| Maker Multi-Prefixo | 3 | 3 |
+| Checker | 4 | 4 |
+| Alçada reduzida | 5 | 5 |
+
+## Jornada da fatura
+
+Upload do documento → leitura pela IA → normalização dos campos → validação determinística → revisão humana → resolução cadastral quando necessária → cálculo elegível → Maker/Checker.
+
+A IA interpreta o documento, mas não decide sozinha sua validade financeira ou cadastral. O cálculo exige contexto autorizado, campos validados e regras elegíveis. O backend oferece o fluxo Maker/Checker; a conclusão da revisão na interface não executa pagamento nem equivale a uma aprovação bancária.
+
+### Revisão cadastral
+
+Uma concessionária não reconhecida não impede, por si só, o envio do documento para revisão quando os demais requisitos documentais estão atendidos. O nome extraído (`concessionaria_extraida`) é preservado, sem inventar `id_concessionaria` e sem cadastrar concessionárias automaticamente pela IA.
+
+O documento pode permanecer em revisão cadastral, com cálculo definitivo bloqueado enquanto a pendência relevante não for resolvida. A resolução humana é seguida de revalidação determinística.
+
+### Storage
+
+A abstração `DocumentStorage` possui implementações local, para desenvolvimento, e Cloudflare R2, para ambiente externo. O PostgreSQL armazena referências e metadados; o R2 guarda o arquivo binário privado. O backend lê o objeto diretamente para processamento, sem necessidade de URL pública do documento.
+
+## Interface
+
+| Rota | Função |
+| --- | --- |
+| `/` | Acesso DEMO |
+| `/pagamentos` | Upload, leitura, resumo, edição, validação e revisão |
+| `/faturas` | Histórico e consulta |
+| `/relatorios` | Placeholder; relatórios ainda não disponibilizados |
+
+As rotas internas exigem sessão válida. Os principais componentes da jornada, em `frontend/src/components/payment/`, são `AppShell`, `PaymentStepper`, `UploadArea`, `InvoiceSummary`, `ValidationSummary` e `DocumentaryAlerts`, que apresenta pendências documentais e cadastrais.
+
+## Desenvolvimento local
+
+Pré-requisitos: Python com ambiente virtual, Node.js/npm e PostgreSQL configurado. Configure o ambiente do backend conforme [DEPLOY.md](DEPLOY.md), instale suas dependências e prepare o banco antes de iniciar.
+
+Backend, com `.venv` e banco configurados:
 
 ```bash
 cd backend
 source .venv/bin/activate
-.venv/bin/alembic upgrade head
-# Configure DEMO_MODE=true no backend/.env apenas para a DEMO local.
-.venv/bin/python scripts/prepare_demo_auth.py --ambiente-demo --arquivo /tmp/bb-demo-acessos.json
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
+
+Para autenticação DEMO local, configure `DEMO_MODE=true` no ambiente do backend. Em banco de demonstração, prepare os dados fictícios e os acessos antes de iniciar o servidor:
+
+```bash
+cd backend
+source .venv/bin/activate
+python scripts/seed_demo.py --ambiente-demo
+python scripts/prepare_demo_auth.py --ambiente-demo --arquivo /tmp/bb-demo-acessos.json
+```
+
+O script `prepare_demo_auth.py` configura os cinco perfis existentes no seed e gera um arquivo privado de acessos. Não versione esse arquivo nem arquivos de ambiente ou credenciais de infraestrutura.
 
 Frontend, em outro terminal:
 
@@ -25,74 +108,56 @@ npm install
 npm run dev
 ```
 
-Acesse http://127.0.0.1:5173. Alternativa: `bash scripts/start_frontend.sh` na raiz.
-`VITE_API_URL` é obrigatória e define exclusivamente a origem da API; copie o exemplo local antes de iniciar.
-O cliente acrescenta `/api/v1`. CORS já permite localhost:5173 e 127.0.0.1:5173,
-sem wildcard e com cookies autenticados. Use as matrículas DEMO e os segredos do arquivo privado gerado.
+`VITE_API_URL` é obrigatória e define a origem da API; o cliente acrescenta `/api/v1`. Para o backend local, use `http://127.0.0.1:8000`. A interface fica disponível em `http://127.0.0.1:5173`.
 
-## Rotas e jornada
+## Testes e verificação
 
-- `/`: login DEMO com matrícula, senha e código local de demonstração.
-- `/pagamentos`: upload, leitura, resumo, ajuste manual, validação e conclusão.
-- `/faturas`: busca, filtros, tabela e ação para envio.
-- `/relatorios`: placeholder.
+Estado verificado nesta atualização: **346 testes backend e 7 testes frontend aprovados**, além de lint e build aprovados. Os roteiros de revisão de navegador com Playwright ficam em `frontend/review/`, incluindo jornada documental, revisão cadastral e autenticação DEMO. As revisões documentais usam respostas simuladas; não comprovam, isoladamente, integração com os serviços publicados.
 
-A sessão é persistida no backend e em cookie HttpOnly por oito horas. Atualizar a página preserva o login; “Sair” revoga a sessão. Rotas internas exigem sessão válida.
-Hospedagem futura deve encaminhar rotas para index.html (BrowserRouter).
-
-## Contratos reutilizados
-
-Login e sessão: POST `auth/login`, GET `auth/sessao`, PATCH `auth/prefixo`, POST `auth/logout`.
-A sessão fornece identidade, prefixos autorizados e unidade ativa. Um prefixo é automático;
-múltiplos aparecem em seletor autorizado antes do processamento.
-POST `documentos/upload` (multipart, `file`) e POST `documentos/{id}/processar-inteligente`
-iniciam a jornada sem ContaConsumo prévia. O usuário vem do cookie, não de um ID manual.
-PATCH `dados_extraidos/{id}/validacao`, PATCH `itens_extraidos/{id}/validacao` e
-POST `contas_consumo/{id}/calcular` preservam a revisão humana e as regras do backend.
-O valor original é preservado; competência é canônica AAAA-MM e apresentada MM/AAAA.
-
-## Assets e componentes
-
-`frontend/public/assets/`: bb-logo.png, bb-symbol.png, login-hero.png,
-dashboard-banner.png, avatar-demo.png e invoice-placeholder.png.
-São os seis assets existentes, renomeados após inspeção visual.
-O placeholder é ilustrativo, não representa dados extraídos.
-
-`frontend/src/components/payment/`: AppShell, Sidebar, Topbar, PaymentStepper,
-ProcessingState, UploadArea, InvoiceSummary, DocumentPreview, EditInvoiceModal,
-CalculationSummary, ValidationSummary e ConfirmationCard.
-
-## Limitações
-
-- A criação de ContaConsumo exige leitura elegível e correspondência cadastral; evidência insuficiente permanece em revisão.
-- Extração síncrona sem progresso intermediário: indicador indeterminado, sem percentual inventado.
-- O prefixo vem da sessão; concessionária e unidade exibidas vêm do documento, com validação cadastral separada.
-- O cálculo exige campos/componentes validados e perfil/regra vigentes no cadastro.
-- A edição salva valores validados via API; as requisições não são uma transação única.
-  Em falhas parciais, valores já salvos permanecem e a operação pode ser repetida.
-- Conclusão registra a conclusão visual da revisão e mostra o cálculo persistido.
-  Não cria ordem, aprovação ou encaminhamento bancário. A data exibida é a do cálculo.
-- Autenticação exclusivamente DEMO local; sem SSO, MFA institucional ou pagamento bancário.
-- Relatórios permanecem como placeholder. Páginas técnicas antigas não são rotas do MVP.
-
-## Verificação
+Backend, com o ambiente virtual ativo:
 
 ```bash
-npm run build
-npm run lint
-npm run type-check
+cd backend
+python -m unittest discover -s tests
+```
+
+Frontend:
+
+```bash
+cd frontend
 npm test
+npm run lint
+npm run build
+```
+
+Na raiz do repositório:
+
+```bash
 git diff --check
 ```
 
-Capturas em `frontend/review/screenshots/01-login.png` até `09-relatorios.png` (1366×768).
-`frontend/review/browser-review.cjs` usa Playwright externo ao runtime para revisão visual
-com respostas de API simuladas; não instala dependências na aplicação.
-Execute com `PLAYWRIGHT_MODULE=/caminho/node_modules/playwright node review/browser-review.cjs`.
-Isso verifica a UI e os contratos consumidos; não comprova integração com o banco real.
+## Princípios do projeto
 
-Arquitetura, perfis, credenciais locais e limites antes de deploy: [autenticação DEMO](RELATORIO_AUTENTICACAO_DEMO.md).
+- IA interpreta; backend decide. Regras financeiras são determinísticas.
+- O usuário vem da sessão, e o prefixo é validado no backend.
+- Documentos permanecem privados.
+- Nenhuma entidade cadastral é criada automaticamente pela IA.
+- Maker não aprova a própria operação.
+- O cálculo depende de contexto e validações elegíveis.
 
-Preparação de homologação, variáveis, storage e seleção de hosting: [DEPLOY.md](DEPLOY.md). Nenhuma publicação foi executada.
+## Limitações atuais
 
-Documentos: `DOCUMENT_STORAGE_PROVIDER=local` no desenvolvimento ou `r2` para storage privado externo. Novos uploads R2 permitem backend efêmero; a configuração e a preservação do legado estão em [DEPLOY.md](DEPLOY.md).
+- MVP restrito a energia elétrica e água/saneamento, com escopo territorial em Pernambuco.
+- Autenticação institucional/SSO não implementada; credenciais DEMO servem apenas à apresentação.
+- Resolução cadastral administrativa completa ainda não possui tela própria.
+- Relatórios permanecem como placeholder.
+- Render Free pode hibernar. O rate limit em memória atende ao processo único da demonstração, sem coordenação entre múltiplas réplicas.
+- Não executa pagamento bancário real.
+
+## Documentação complementar
+
+- [Deploy e configuração](DEPLOY.md)
+- [Autenticação DEMO](RELATORIO_AUTENTICACAO_DEMO.md)
+- [Integração documental](RELATORIO_INTEGRACAO_DOCUMENTAL.md)
+- [Storage R2](RELATORIO_STORAGE_R2.md)
+- [Revisão cadastral](RELATORIO_REVISAO_CADASTRAL.md)
