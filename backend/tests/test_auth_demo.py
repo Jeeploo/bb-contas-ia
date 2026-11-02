@@ -237,6 +237,50 @@ class DemoAuthTests(ApiTestCase):
             s.commit()
             return e.id_extracao
 
+    def test_confirmar_jornada_autenticada_cadastro_opcional_agua_e_energia(self):
+        # Regressão: confirmar-jornada era classificada como mutação administrativa.
+        for tipo in ('AGUA', 'ENERGIA'):
+            for unknown, unlinked in ((True, False), (False, True), (True, True)):
+                with self.subTest(tipo=tipo, unknown=unknown, unlinked=unlinked):
+                    self.login()
+                    extraction_id = self.persisted_extraction()
+                    with Session(self.engine) as session:
+                        extraction = session.get(models.ExtracaoInteligente, extraction_id)
+                        document = extraction.documento
+                        document.id_usuario_contexto = self.manifest['usuarios']['maker']['id_usuario']
+                        document_id = document.id_documento
+                        service = 'agua' if tipo == 'AGUA' else 'energia'
+                        utility = self.manifest['concessionarias'][service]
+                        unit = session.query(models.UnidadeConsumidora).filter_by(
+                            id_prefixo=document.id_prefixo_contexto, id_concessionaria=utility['id_concessionaria']).first()
+                        self.assertIsNotNone(unit)
+                        changes = dict(tipo_documento=tipo,
+                            concessionaria='COMPANHIA PERNAMBUCANA DE SANEAMENTO' if unknown else utility['razao_social'],
+                            unidade_consumidora='SEM-VINCULO' if unlinked else unit.unidade_consumidora,
+                            competencia='2026-08', data_vencimento='2026-09-15', valor_original='92.66')
+                        for field in extraction.dados_extraidos:
+                            if field.campo_identificado in changes:
+                                field.valor_extraido = field.valor_validado = changes[field.campo_identificado]
+                        session.commit()
+                    with patch.object(settings, 'demo_mode', True), patch(
+                        'app.services.leitura_inteligente.get_document_ai_provider', side_effect=AssertionError('IA proibida')):
+                        response = self.client.post(f'/api/v1/documentos/{document_id}/confirmar-jornada', json={'valores': {}, 'enviar': True})
+                        self.assertEqual(response.status_code, 200, response.text)
+                        e = response.json()['processamento']['extracao']
+                        self.assertTrue(e['permite_envio_validacao'])
+                        self.assertFalse(e['bloqueia_calculo'])
+                        self.assertEqual({p['tipo'] for p in e['pendencias']},
+                            ({'CORRESPONDENCIA_CONCESSIONARIA'} if unknown else set()) |
+                            ({'VINCULO_UNIDADE'} if unlinked or unknown else set()))
+                        response = self.client.post(f'/api/v1/documentos/{document_id}/calcular-demo')
+                        self.assertEqual(response.status_code, 200, response.text)
+                        self.assertEqual(response.json()['valor_inicial'], '92.66')
+                        self.assertTrue(any(j['documento']['id_documento'] == document_id for j in
+                            self.client.get('/api/v1/documentos/jornada/checker').json()))
+                    self.login('DEMO-maker-paulista')
+                    response = self.client.post(f'/api/v1/documentos/{document_id}/confirmar-jornada', json={})
+                    self.assertEqual(response.status_code, 404, response.text)
+
     def test_associacao_http_identidade_sessao_sem_ia(self):
         user = self.login().json()['usuario']['id_usuario']
         eid = self.persisted_extraction()

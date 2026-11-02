@@ -29,6 +29,8 @@ export function PaymentJourney() {
   const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [restoring, setRestoring] = useState(true);
   const [associating, setAssociating] = useState(false);
+  const [associationBusy, setAssociationBusy] = useState(false);
+  const [associationError, setAssociationError] = useState("");
   const [opcoes, setOpcoes] = useState<OpcaoConcessionaria[]>([]);
   const [selected, setSelected] = useState(0);
   const [file, setFile] = useState<File>();
@@ -52,6 +54,7 @@ export function PaymentJourney() {
     setRestoring(true); setRestoreFailed(false);
     setResult(undefined); setCalculo(undefined); setDoc(undefined); setFile(undefined);
     setProcessingVisible(false); setBusy(false); setError('');
+    setAssociating(false); setAssociationError('');
     if (needsPrefix) { setRestoring(false); return () => { active = false; }; }
     const key = `${session?.usuario.id_usuario}:${session?.id_prefixo_ativo}:${restoreAttempt}`;
     // Reutiliza a consulta em andamento durante a repetição de efeitos do StrictMode.
@@ -123,17 +126,18 @@ export function PaymentJourney() {
     }
   }
   async function openAssociation() {
-    setError(''); setSelected(0); setOpcoes([]); setAssociating(true); setBusy(true);
+    setAssociationError(''); setSelected(0); setOpcoes([]); setAssociating(true); setAssociationBusy(true);
     try { setOpcoes(await api.concessionariasElegiveis()); }
-    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+    catch { setAssociationError('Associação cadastral não disponível no ambiente DEMO. A leitura e o processamento podem continuar normalmente.'); }
+    finally { setAssociationBusy(false); }
   }
   async function associate() {
     if (!result || !selected) return;
-    setBusy(true); setError('');
+    setAssociationBusy(true); setAssociationError('');
     try {
       const extracao = await api.resolverConcessionaria(result.extracao.id_extracao, selected);
       setResult({...result, extracao}); setAssociating(false);
-    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+    } catch (e) { setAssociationError(errorMessage(e)); } finally { setAssociationBusy(false); }
   }
   async function calculate() {
     if (!result || result.extracao.bloqueia_calculo) return;
@@ -285,8 +289,8 @@ export function PaymentJourney() {
         busy={busy} onAssociate={() => void openAssociation()} onCalculate={() => void calculate()} /></>}
       {associating && result && <AssociarConcessionariaModal
         nome={result.campos_encontrados.find(f => f.campo_identificado === 'concessionaria')?.valor_extraido ?? undefined}
-        opcoes={opcoes} selected={selected} busy={busy} error={error} onSelect={setSelected}
-        onClose={() => {setAssociating(false); setError('');}} onConfirm={() => void associate()} />}
+        opcoes={opcoes} selected={selected} busy={associationBusy} error={associationError} onSelect={setSelected}
+        onClose={() => {setAssociating(false); setAssociationError('');}} onConfirm={() => void associate()} />}
       {step === 4 && calculo && (
         <><ConfirmationCard fields={fields} calculo={calculo} situacao={result?.extracao.situacao_validacao} onReset={() => void reset()} />
         {result && <DocumentaryAlerts extracao={result.extracao} confirmado />}</>

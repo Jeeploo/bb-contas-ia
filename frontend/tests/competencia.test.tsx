@@ -177,3 +177,25 @@ test('fallback DEMO sem cadastro exibe aviso e cálculo sem erro de perfil', () 
   assert.ok(!html.includes('Prefixo deve ter exatamente'));
   assert.equal(journeyStep({...review,situacao_validacao:'validada'}, undefined),3);
 });
+
+
+test('água e energia com alertas cadastrais permitem envio e cálculo opcional', () => {
+  for (const nome of ['COMPANHIA PERNAMBUCANA DE SANEAMENTO', 'COMPANHIA ENERGÉTICA DE PERNAMBUCO']) {
+    for (const pendencias of [review.pendencias, [{tipo:'VINCULO_UNIDADE', mensagem:'Unidade sem vínculo', bloqueia_envio_validacao:false, bloqueia_calculo:false}], [...review.pendencias, {tipo:'VINCULO_UNIDADE', mensagem:'Unidade sem vínculo', bloqueia_envio_validacao:false, bloqueia_calculo:false}]]) {
+      const extraction = {...review, pendencias};
+      assert.equal(canSubmitReview(extraction), true);
+      const html = renderToStaticMarkup(<ConcessionariaReview extracao={extraction} nome={nome} busy={false} onAssociate={()=>{}} onCalculate={()=>{}} />);
+      assert.ok(html.includes('Calcular fatura'));
+      assert.ok(!html.includes('documentary-alert-error'));
+    }
+  }
+});
+
+test('indisponibilidade administrativa aparece como aviso local no modal', () => {
+  const html = renderToStaticMarkup(<AssociarConcessionariaModal opcoes={[]} selected={0} busy={false}
+    error="Associação cadastral não disponível no ambiente DEMO. A leitura e o processamento podem continuar normalmente."
+    onSelect={()=>{}} onClose={()=>{}} onConfirm={()=>{}} />);
+  assert.ok(html.includes('documentary-alert-warning'));
+  assert.ok(!html.includes('role="alert"'));
+  assert.ok(html.includes('Cancelar'));
+});

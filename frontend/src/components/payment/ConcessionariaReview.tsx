@@ -31,7 +31,7 @@ export function AssociarConcessionariaModal({nome, opcoes, selected, busy, error
         <option value="" disabled>Selecione uma concessionária cadastrada</option>
         {opcoes.map(c => <option key={c.id_concessionaria} value={c.id_concessionaria}>{c.nome}</option>)}
       </select></label>
-      {error && <p className="notice error" role="alert">{error}</p>}
+      {error && <Alert variant="warning">{error}</Alert>}
       <div className="actions"><button type="button" disabled={busy} onClick={onClose}>Cancelar</button>
         <button className="primary" disabled={busy || !selected}>Confirmar associação</button></div>
     </form>
