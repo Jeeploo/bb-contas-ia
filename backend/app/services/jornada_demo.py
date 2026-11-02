@@ -62,7 +62,7 @@ class JornadaDemoService:
         prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
         documents = self.session.scalars(select(Documento).where(
             Documento.id_usuario_contexto == contexto.id_usuario,
-            Documento.id_prefixo_contexto == prefix.id_prefixo).order_by(Documento.id_documento.desc())).all()
+            Documento.id_prefixo_contexto == prefix.id_prefixo).order_by(Documento.id_documento.desc()).limit(1)).all()
         for document in documents:
             if document.origem == 'upload_encerrado':
                 return dict(documento=None, processamento=None, calculo=None)
@@ -82,6 +82,9 @@ class JornadaDemoService:
             document, extraction, prefix = self.obter(document_id, contexto)
             if extraction is None or not evento(extraction, 'ENVIADO_PARA_VALIDACAO'):
                 raise ContextoOperacionalError('Envie o documento para validação antes do cálculo')
+            existing = evento(extraction, 'CALCULO_DEMO')
+            if existing:
+                return existing['calculo']
             ValidacaoDocumentalService(self.session).revalidar(extraction)
             if politica_revisao(extraction)['bloqueia_calculo']:
                 raise ContextoOperacionalError('Documento possui erro bloqueante')
@@ -91,11 +94,12 @@ class JornadaDemoService:
             if existing:
                 return existing['calculo']
             values = extraction.evidencias_validacao_documental['dados_identificados']
+            from app.core.config import settings
             base, rule, memory = CalculoContextualService(self.session).executar(extraction, prefix,
-                TIPOS[normalizar(values['tipo_documento'])], extraction.evidencias_validacao_documental.get('id_concessionaria'))
+                TIPOS[normalizar(values['tipo_documento'])], extraction.evidencias_validacao_documental.get('id_concessionaria'), demo=settings.demo_mode)
             memory['pendencias'] = politica_revisao(extraction)['pendencias']
             calculation = dict(id_extracao=extraction.id_extracao, id_conta=document.id_conta,
-                id_regra=rule.id_regra, data_calculo=datetime.now(timezone.utc).isoformat(),
+                id_regra=rule.id_regra if rule else None, data_calculo=datetime.now(timezone.utc).isoformat(),
                 valor_inicial=str(base), valor_calculado=memory['resultado'],
                 memoria_calculo=memory, situacao='validado', origem='documental_demo')
             registrar(extraction, 'CALCULO_DEMO', calculo=calculation, id_usuario=contexto.id_usuario)
@@ -104,6 +108,38 @@ class JornadaDemoService:
                 document.conta.situacao = 'pronta_checker'
             self.session.commit()
             return calculation
+        except Exception:
+            self.session.rollback()
+            raise
+
+    def confirmar(self, document_id, contexto, valores, enviar):
+        from app.schemas.dado_extraido import DadoExtraidoValidacao
+        from app.schemas.item_extraido import ItemExtraidoValidacao
+        from app.services.dado_extraido import DadoExtraidoService
+        from app.services.item_extraido import ItemExtraidoService
+        from app.services.validacao_documental import encaminhar_revisao
+        from app.services.conta_consumo import ContaConsumoService
+        try:
+            document, extraction, _ = self.obter(document_id, contexto)
+            if extraction is None or evento(extraction, 'CALCULO_DEMO'):
+                raise ContextoOperacionalError('Documento sem leitura editável')
+            for field in extraction.dados_extraidos:
+                key = 'd' + str(field.id_dado_extraido)
+                data = DadoExtraidoValidacao(**({'valor_validado': valores[key]} if key in valores else
+                    {'valor_validado': field.valor_validado} if field.valor_validado is not None else {}))
+                DadoExtraidoService(self.session).validar(field.id_dado_extraido, data, defer=True)
+            for item in extraction.itens_extraidos:
+                key = 'i' + str(item.id_item_extraido)
+                data = ItemExtraidoValidacao(**({'valor_validado': valores[key]} if key in valores else
+                    {'valor_validado': item.valor_validado} if item.valor_validado is not None else {}))
+                ItemExtraidoService(self.session).validar(item.id_item_extraido, data, defer=True)
+            if enviar:
+                encaminhar_revisao(self.session, extraction, contexto)
+            else:
+                ValidacaoDocumentalService(self.session).revalidar(extraction, contexto)
+            ContaConsumoService(self.session).criar_da_leitura(extraction)
+            self.session.commit()
+            return self.resposta(document, extraction)
         except Exception:
             self.session.rollback()
             raise

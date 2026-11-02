@@ -18,7 +18,7 @@ class DadoExtraidoService(BaseService[DadoExtraido, DadoExtraidoCreate, DadoExtr
             from app.services.exceptions import ContextoOperacionalError
             raise ContextoOperacionalError("Original revisado é imutável; use a validação humana")
 
-    def validar(self, entity_id: int, data: DadoExtraidoValidacao) -> DadoExtraido:
+    def validar(self, entity_id: int, data: DadoExtraidoValidacao, *, defer=False) -> DadoExtraido:
         try:
             instance = self.get_by_id(entity_id)
             from sqlalchemy import select
@@ -38,6 +38,8 @@ class DadoExtraidoService(BaseService[DadoExtraido, DadoExtraidoCreate, DadoExtr
                     raise CalculationError("Competência validada deve usar AAAA-MM")
             instance.situacao_validacao = "validada"
             self.session.flush()
+            if defer:
+                return instance
             from app.services.validacao_documental import ValidacaoDocumentalService
             if instance.extracao.id_usuario_contexto is not None or instance.campo_identificado in {"tipo_documento", "uf", "municipio", "concessionaria", "unidade_consumidora", "endereco_unidade"}:
                 ValidacaoDocumentalService(self.session).revalidar(instance.extracao)

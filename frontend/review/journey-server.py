@@ -18,7 +18,8 @@ from app.services.interpretacao_documental import COMPONENTES
 from app.document_ai.base import InterpretacaoAI
 from app.document_ai.normalizacao import normalizar_leitura
 from sqlalchemy.orm import Session
-from app.services.regra_demo import configurar_regra_demo
+from app.core.config import settings
+settings.demo_mode = True
 from app.models import Localidade
 
 review_lock = asyncio.Lock()
@@ -27,10 +28,6 @@ async def serialize_sqlite_review(request, call_next):
     # StaticPool compartilha uma conexão; React StrictMode pode consultar em paralelo.
     async with review_lock:
         response = await call_next(request)
-        if request.url.path.endswith('/processar-inteligente') and response.status_code == 200:
-            document_id = int(request.url.path.split('/')[-2])
-            with Session(case.engine) as session, session.begin():
-                configurar_regra_demo(session, document_id)
         return response
 
 snapshot = json.loads(Path(sys.argv[1]).read_text())

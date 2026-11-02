@@ -38,6 +38,7 @@ class Settings:
             raise ValueError('APP_ENV inválido')
         self.external = self.app_env not in {'development', 'test'}
         # Compatibilidade dos ambientes locais anteriores; exemplos usam apenas os nomes canônicos.
+        self.demo_mode = boolean(env, 'DEMO_MODE')
         self.demo_auth_enabled = boolean(env, 'DEMO_MODE', legacy='DEMO_AUTH_ENABLED')
         self.demo_cookie_secure = boolean(env, 'SESSION_COOKIE_SECURE', self.external, 'DEMO_COOKIE_SECURE')
         self.session_cookie_samesite = env.get('SESSION_COOKIE_SAMESITE', 'strict').strip().lower()

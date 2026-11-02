@@ -8,7 +8,7 @@ from app.services.exceptions import CalculationError
 class ItemExtraidoService(BaseService[ItemExtraido, ItemExtraidoCreate, ItemExtraidoValidacao]):
     repository_class = ItemExtraidoRepository
 
-    def validar(self, entity_id, data):
+    def validar(self, entity_id, data, *, defer=False):
         try:
             item = self.get_by_id(entity_id)
             from sqlalchemy import select
@@ -25,7 +25,8 @@ class ItemExtraidoService(BaseService[ItemExtraido, ItemExtraidoCreate, ItemExtr
             item.valor_validado = value
             item.situacao_validacao = "validada"
             self.session.flush()
-            self.session.commit()
+            if not defer:
+                self.session.commit()
             return item
         except Exception:
             self.session.rollback()

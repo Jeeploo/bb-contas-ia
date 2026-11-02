@@ -2,6 +2,7 @@ import type { JornadaPersistida, ResultadoCalculo } from '../types';
 import { listAll, request } from './client';
 import type { ItemRegra, PerfilProcessamento, ItemExtraido, RespostaCalculoContextual, Localidade, RegraCalculo, ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
 export const api = {
+    confirmarJornada: (id: number, valores: Record<string, string>, enviar: boolean) => request<JornadaPersistida>(`/documentos/${id}/confirmar-jornada`, {method:'POST', body:JSON.stringify({valores, enviar})}),
     jornadaDocumento: (id: number) => request<JornadaPersistida>(`/documentos/${id}/jornada`),
     retomarJornada: () => request<JornadaPersistida>('/documentos/jornada/atual'),
     novaFatura: (id: number) => request<void>(`/documentos/${id}/nova-fatura`, {method:'POST'}),

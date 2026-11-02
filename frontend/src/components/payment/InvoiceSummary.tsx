@@ -107,12 +107,12 @@ export function CalculationSummary({ calculo }: { calculo?: Calculo }) {
         <p>Coeficiente: {String(calculo.memoria_calculo.coeficiente).replace('.', ',')}</p>
         <p>Operação aplicada: {money(calculo.valor_inicial)} / {String(calculo.memoria_calculo.coeficiente).replace('.', ',')}</p>
       </>}
-      {calculo?.memoria_calculo?.demonstrativa && calculo.memoria_calculo.aviso_demo && <p className="hint">{calculo.memoria_calculo.aviso_demo}</p>}
-      {calculo?.memoria_calculo?.correspondencia_cadastral_confirmada === false && <p>Regra vigente do prefixo aplicada aos dados documentais confirmados; correspondência cadastral pendente.</p>}
+      {calculo?.memoria_calculo?.demonstrativa && calculo.memoria_calculo.aviso_demo && <p className="hint">Regra demonstrativa aplicada ao cálculo.<br />{calculo.memoria_calculo.aviso_demo}</p>}
+      {calculo?.memoria_calculo?.correspondencia_cadastral_confirmada === false && !calculo.memoria_calculo.demonstrativa && <p>Regra vigente do prefixo aplicada aos dados documentais confirmados; correspondência cadastral pendente.</p>}
       {calculo?.memoria_calculo && (
         <details>
           <summary>Ver detalhes do cálculo</summary>
-          <p>Regra #{calculo.id_regra} · {calculo.memoria_calculo.estrategia} · Coeficiente: {String(calculo.memoria_calculo.parametros.coeficiente ?? 'Não se aplica')}</p>
+          <p>Regra {calculo.id_regra ? `#${calculo.id_regra}` : "DEMO"} · {calculo.memoria_calculo.estrategia} · Coeficiente: {String(calculo.memoria_calculo.parametros.coeficiente ?? 'Não se aplica')}</p>
           <p>
             Valor base: {money(calculo.memoria_calculo.valor_base)} · Resultado:{" "}
             {money(calculo.memoria_calculo.resultado)}

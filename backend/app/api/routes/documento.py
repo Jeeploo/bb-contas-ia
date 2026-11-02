@@ -51,6 +51,18 @@ class DecisaoChecker(BaseModel):
     observacao: str = ''
 
 
+class ConfirmacaoJornada(BaseModel):
+    valores: dict[str, str] = {}
+    enviar: bool = True
+
+
+@router.post('/{id_documento}/confirmar-jornada', response_model=JornadaRead)
+def confirmar_jornada(id_documento: int, data: ConfirmacaoJornada, session: DatabaseSession,
+                      contexto=Depends(get_contexto_operacional)):
+    from app.services.jornada_demo import JornadaDemoService
+    return JornadaDemoService(session).confirmar(id_documento, contexto, data.valores, data.enviar)
+
+
 @router.get('/jornada/atual', response_model=JornadaRead)
 def retomar_jornada(session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
     from app.services.jornada_demo import JornadaDemoService

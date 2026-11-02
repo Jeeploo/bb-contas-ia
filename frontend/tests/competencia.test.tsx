@@ -164,3 +164,16 @@ test('regra DEMO apresenta divisão, coeficiente, diferença e aviso de escopo e
   const html=renderToStaticMarkup(<CalculationSummary calculo={demo} />);
   for (const text of ['736,53','813,40','76,87','Regra DEMO — Coeficiente 0,9055','Coeficiente: 0,9055',' / ','Operação aplicada:','Não representa uma regra financeira aplicável a todos os prefixos do Banco do Brasil.']) assert.ok(html.includes(text),text);
 });
+
+test('fallback DEMO sem cadastro exibe aviso e cálculo sem erro de perfil', () => {
+  const demo = {...calculation, id_calculo: undefined, id_conta: null, id_regra: null,
+    id_extracao: 15, origem: 'documental_demo' as const, valor_inicial:'736.53',valor_calculado:'813.40',
+    memoria_calculo:{...calculation.memoria_calculo,id_regra:null,id_perfil:null,
+      nome_regra:'Regra DEMO — Coeficiente 0,9055',demonstrativa:true,fallback_demo:true,
+      aviso_demo:'Baseada em caso real de prefixo específico; não representa regra aplicável a todos os prefixos.',
+      coeficiente:'0.9055',operacao:'DIVISAO',diferenca:'76.87'}};
+  const html=renderToStaticMarkup(<CalculationSummary calculo={demo} />);
+  for (const text of ['736,53','813,40','76,87','Regra demonstrativa aplicada ao cálculo.', 'Baseada em caso real']) assert.ok(html.includes(text),text);
+  assert.ok(!html.includes('Prefixo deve ter exatamente'));
+  assert.equal(journeyStep({...review,situacao_validacao:'validada'}, undefined),3);
+});

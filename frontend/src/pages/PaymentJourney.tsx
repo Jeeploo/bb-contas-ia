@@ -4,7 +4,7 @@ import { journeyStep } from '../utils/journey';
 import { ConcessionariaReview, AssociarConcessionariaModal, type OpcaoConcessionaria } from '../components/payment/ConcessionariaReview';
 import { Alert, DocumentaryAlerts, canSubmitReview } from "../components/payment/DocumentaryAlerts";
 import { useAuth } from "../auth/AuthContext";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseCompetenciaDisplay } from "../utils/competencia";
 import { api } from "../api";
 import { errorMessage } from "../api/client";
@@ -22,7 +22,7 @@ import {
   labels,
   itemLabels,
 } from "../components/payment/InvoiceSummary";
-import type { ProcessamentoDocumento, ResultadoCalculo as Calculo, Documento } from "../types";
+import type { ProcessamentoDocumento, ResultadoCalculo as Calculo, Documento, JornadaPersistida } from "../types";
 export function PaymentJourney() {
   const { session, changingPrefix, selectPrefix } = useAuth();
   const [restoreFailed, setRestoreFailed] = useState(false);
@@ -46,19 +46,28 @@ export function PaymentJourney() {
   const prefixos = session?.prefixos ?? [];
   const selectedPrefix = prefixos.find(p=>p.id_prefixo === session?.id_prefixo_ativo);
   const needsPrefix = prefixos.length > 1 && !session?.id_prefixo_ativo;
+  const restoreRequest = useRef<{ key: string; promise: Promise<JornadaPersistida> } | null>(null);
   useEffect(() => {
     let active = true;
     setRestoring(true); setRestoreFailed(false);
     setResult(undefined); setCalculo(undefined); setDoc(undefined); setFile(undefined);
     setProcessingVisible(false); setBusy(false); setError('');
     if (needsPrefix) { setRestoring(false); return () => { active = false; }; }
-    api.retomarJornada().then(j => {
+    const key = `${session?.usuario.id_usuario}:${session?.id_prefixo_ativo}:${restoreAttempt}`;
+    // Reutiliza a consulta em andamento durante a repetição de efeitos do StrictMode.
+    if (!restoreRequest.current || restoreRequest.current.key !== key)
+      restoreRequest.current = { key, promise: api.retomarJornada() };
+    const pending = restoreRequest.current;
+    pending.promise.then(j => {
       if (!active) return;
       setDoc(j.documento ?? undefined);
       setResult(j.processamento ?? undefined);
       setCalculo(j.calculo ?? undefined);
     }).catch(e => { if (active) { setError(errorMessage(e)); setRestoreFailed(true); } })
-      .finally(() => { if (active) setRestoring(false); });
+      .finally(() => {
+        if (restoreRequest.current === pending) restoreRequest.current = null;
+        if (active) setRestoring(false);
+      });
     return () => { active = false; };
   }, [session?.usuario.id_usuario, session?.id_prefixo_ativo, restoreAttempt, needsPrefix]);
   async function process() {
@@ -75,7 +84,6 @@ export function PaymentJourney() {
       setProcessingPhase('extracting');
       const response = await api.processarInteligente(uploaded.id_documento);
       setProcessingPhase('validating');
-      response.extracao = await api.revalidarExtracao(response.extracao.id_extracao);
       setProcessedResult(response);
       setProcessingPhase('complete');
     } catch (e) {
@@ -97,55 +105,17 @@ export function PaymentJourney() {
     setError("");
     setCalculo(undefined);
     try {
-      const campos = [];
-      for (const d of result.campos_encontrados) {
-        const value = values?.["d" + d.id_dado_extraido] ?? d.valor_validado ?? d.valor_normalizado ?? d.valor_extraido ?? "";
-        const updated = await api.validar(d.id_dado_extraido,
-          d.campo_identificado === "competencia" ? parseCompetenciaDisplay(value) : value);
-        campos.push(updated);
-        setResult((old) =>
-          old
-            ? {
-                ...old,
-                campos_encontrados: old.campos_encontrados.map((x) =>
-                  x.id_dado_extraido === updated.id_dado_extraido ? updated : x,
-                ),
-              }
-            : old,
-        );
+      const normalized = { ...values };
+      for (const field of result.campos_encontrados) {
+        const key = "d" + field.id_dado_extraido;
+        if (field.campo_identificado === "competencia" && normalized[key] !== undefined)
+          normalized[key] = parseCompetenciaDisplay(normalized[key]);
       }
-      const itens = [];
-      for (const i of result.itens_encontrados) {
-        const updated = await api.validarItem(
-          i.id_item_extraido,
-          values?.["i" + i.id_item_extraido] ??
-            String(i.valor_validado ?? i.valor),
-        );
-        itens.push(updated);
-        setResult((old) =>
-          old
-            ? {
-                ...old,
-                itens_encontrados: old.itens_encontrados.map((x) =>
-                  x.id_item_extraido === updated.id_item_extraido ? updated : x,
-                ),
-              }
-            : old,
-        );
-      }
-      // Recupera a decisão e o vínculo após as correções, sem chamar a IA novamente.
-      const [extracao, documento] = await Promise.all([
-        api.extracoes().then((all) => all.find((e) => e.id_extracao === result.extracao.id_extracao)),
-        api.documentos().then((all) => all.find((d) => d.id_documento === result.documento.id_documento)),
-      ]);
-      const reviewed = { ...result, campos_encontrados: campos, itens_encontrados: itens,
-        extracao: extracao ?? result.extracao, documento: documento ?? result.documento };
-      setResult(reviewed);
+      const restored = await api.confirmarJornada(result.documento.id_documento, normalized, !values);
+      setDoc(restored.documento ?? undefined);
+      setResult(restored.processamento ?? undefined);
+      setCalculo(restored.calculo ?? undefined);
       setEditing(false);
-      if (!values) {
-        const encaminhada = await api.enviarValidacao(reviewed.extracao.id_extracao);
-        setResult({ ...reviewed, extracao: encaminhada });
-      }
     } catch (e) {
       setError(errorMessage(e));
     } finally {

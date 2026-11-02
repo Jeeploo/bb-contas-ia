@@ -170,6 +170,7 @@ export interface MemoriaCalculo {
     operacao?: string;
     expressao?: string;
     demonstrativa?: boolean;
+    fallback_demo?: boolean;
     aviso_demo?: string | null;
     correspondencia_cadastral_confirmada?: boolean;
     origem_regra?: string;
@@ -180,8 +181,8 @@ export interface MemoriaCalculo {
     componentes_ignorados: { id: number; tipo: string; valor: Decimal | null }[];
     resultado: Decimal;
     resultado_sem_arredondamento: Decimal;
-    id_perfil: number;
-    id_regra: number;
+    id_perfil: number | null;
+    id_regra: number | null;
     versao_regra: string;
     id_extracao: number;
     competencia: string;
@@ -202,4 +203,4 @@ export interface AuthSession {
 
 export interface JornadaPersistida { documento: Documento | null; processamento: ProcessamentoDocumento | null; calculo: ResultadoCalculo | null }
 
-export type ResultadoCalculo = Calculo | (Omit<Calculo, "id_calculo" | "id_conta"> & { id_calculo?: never; id_conta: number | null; id_extracao: number; origem: "documental_demo" });
+export type ResultadoCalculo = Calculo | (Omit<Calculo, "id_calculo" | "id_conta" | "id_regra"> & { id_regra: number | null; id_calculo?: never; id_conta: number | null; id_extracao: number; origem: "documental_demo" });

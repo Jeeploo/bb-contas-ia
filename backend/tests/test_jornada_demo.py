@@ -5,7 +5,12 @@ from tests import test_documento_inicial as fixture
 
 
 class JornadaDemoTests(unittest.TestCase):
-    setUp = fixture.DocumentoInicialTests.setUp
+    def setUp(self):
+        fixture.DocumentoInicialTests.setUp(self)
+        from app.core.config import settings
+        mode = patch.object(settings, 'demo_mode', False)
+        mode.start()
+        self.addCleanup(mode.stop)
     restore_overrides = fixture.DocumentoInicialTests.restore_overrides
     upload = fixture.DocumentoInicialTests.upload
     configure = fixture.DocumentoInicialTests.configure
@@ -247,3 +252,75 @@ class JornadaDemoTests(unittest.TestCase):
             profile.parametros={**profile.parametros,'escopo_demo':dict(id_prefixo=2,competencia='2026-09')}
         self.calculate(r,422)
         self.assertIsNone(self.resume()['calculo'])
+
+    def test_fallback_demo_sem_configuracao_memoria_retomada_sem_ia(self):
+        from app.core.config import settings
+        for _ in range(2):
+            r = self.read(); self.confirm(r)
+            with patch.object(settings, 'demo_mode', True), patch(
+                'app.services.leitura_inteligente.get_document_ai_provider', side_effect=AssertionError('IA proibida')):
+                c = self.calculate(r)
+                self.assertEqual(c['valor_calculado'], '813.40')
+                m = c['memoria_calculo']
+                self.assertEqual(m['valor_original'], '736.53')
+                self.assertEqual(m['diferenca'], '76.87')
+                self.assertEqual(m['coeficiente'], '0.9055')
+                self.assertEqual(m['arredondamento'], 'ROUND_HALF_UP')
+                self.assertTrue(m['fallback_demo'])
+                with patch('app.services.calculo_contextual.CalculoContextualService.executar', side_effect=AssertionError('Recalculo proibido')), patch(
+                    'app.services.validacao_documental.ValidacaoDocumentalService.revalidar', side_effect=AssertionError('Revalidacao proibida')):
+                    self.assertEqual(self.resume()['calculo'], c)
+                    self.assertEqual(self.calculate(r), c)
+        self.assertEqual(self.req('get', 'perfis_processamento'), [])
+        self.assertEqual(self.req('get', 'regras_calculo'), [])
+
+    def test_fallback_demo_configuracao_incompleta_e_perfis_ambiguos(self):
+        from app.core.config import settings
+        from sqlalchemy.orm import Session
+        from app.models import PerfilProcessamento
+        self.profile('COEFICIENTE', {'coeficiente': '1.1'})
+        with Session(self.engine) as session, session.begin():
+            session.get(PerfilProcessamento, 1).parametros = {}
+        r = self.read(); self.confirm(r)
+        with patch.object(settings, 'demo_mode', False):
+            self.calculate(r, 422)
+        with patch.object(settings, 'demo_mode', True):
+            self.assertEqual(self.calculate(r)['valor_calculado'], '813.40')
+        # A API impede sobreposição; simula configuração legada inconsistente no banco isolado.
+        with Session(self.engine) as session, session.begin():
+            profile = session.get(PerfilProcessamento, 1)
+            session.add(PerfilProcessamento(id_prefixo=profile.id_prefixo, id_regra=profile.id_regra,
+                tipo_servico=profile.tipo_servico, estrategia='VALOR_INTEGRAL', parametros={},
+                situacao='ativo', data_inicio_vigencia=profile.data_inicio_vigencia))
+        r = self.read(); self.confirm(r)
+        with patch.object(settings, 'demo_mode', True):
+            self.assertTrue(self.calculate(r)['memoria_calculo']['fallback_demo'])
+
+    def test_demo_preserva_perfil_valido_e_fora_demo_bloqueia(self):
+        from app.core.config import settings
+        r = self.read(); self.confirm(r)
+        with patch.object(settings, 'demo_mode', False):
+            self.calculate(r, 422)
+        self.profile('COEFICIENTE', {'coeficiente': '1.1'})
+        with patch.object(settings, 'demo_mode', True):
+            self.assertEqual(self.calculate(r)['valor_calculado'], '669.57')
+
+    def test_confirmacao_agregada_revalida_uma_vez_e_retorna_etapa3(self):
+        from app.services.validacao_documental import ValidacaoDocumentalService
+        r = self.read()
+        original = ValidacaoDocumentalService.revalidar
+        with patch.object(ValidacaoDocumentalService, 'revalidar', autospec=True, side_effect=original) as validation:
+            j = self.req('post', f"documentos/{r['documento']['id_documento']}/confirmar-jornada",
+                         params={'id_usuario': 1}, json={'valores': {}, 'enviar': True})
+            self.assertEqual(validation.call_count, 1)
+        self.assertEqual(j['processamento']['extracao']['situacao_validacao'], 'validada')
+        self.assertTrue(all(f['situacao_validacao'] == 'validada' for f in j['processamento']['campos_encontrados']))
+        self.assertIsNone(j['calculo'])
+        self.provider.interpretar_documento.assert_called_once()
+
+    def test_confirmacao_agregada_rollback_campo_invalido(self):
+        r = self.read()
+        field = next(f for f in r['campos_encontrados'] if f['campo_identificado'] == 'competencia')
+        self.req('post', f"documentos/{r['documento']['id_documento']}/confirmar-jornada", 422,
+                 params={'id_usuario': 1}, json={'valores': {'d' + str(field['id_dado_extraido']): 'invalida'}})
+        self.assertTrue(all(f['situacao_validacao'] != 'validada' for f in self.resume()['processamento']['campos_encontrados']))
