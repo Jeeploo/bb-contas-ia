@@ -199,3 +199,53 @@ test('indisponibilidade administrativa aparece como aviso local no modal', () =>
   assert.ok(!html.includes('role="alert"'));
   assert.ok(html.includes('Cancelar'));
 });
+
+import { CheckerInvoice, checkerStatus, sortCheckerQueue, toggleCheckerCard } from '../src/components/payment/CheckerQueue';
+import type { JornadaPersistida } from '../src/types';
+const checkerJourney = (status: string, id = 1): JornadaPersistida => {
+  const documento = {id_documento:id,tipo_documento:'fatura',formato:'pdf',data_recebimento:'2026-11-02T12:00:00Z',origem:'upload',caminho_arquivo:'fatura.pdf',id_conta:null};
+  return {documento,calculo:calculation,processamento:{documento,extracao:{...review,situacao_validacao:status,historico_validacao_documental:[{evento:'CALCULO_DEMO',id_usuario:42}]},campos_encontrados:[
+    {id_dado_extraido:1,id_extracao:1,campo_identificado:'concessionaria',valor_extraido:'Concessionária original',valor_validado:'Concessionária confirmada',nivel_confianca:null,situacao_validacao:'validada'},
+  ],itens_encontrados:[],confianca_geral:null,situacao:status}};
+};
+test('fila ordena por data/hora decrescente independentemente do status sem alterar a entrada', () => {
+  const rows = [checkerJourney('processamento_concluido',1), checkerJourney('rejeitada_checker',3), checkerJourney('confirmada_checker',2)];
+  rows[0].calculo = {...calculation, data_calculo:'2026-11-01T21:00:00Z'};
+  rows[1].calculo = {...calculation, data_calculo:'2026-11-02T21:02:00'};
+  rows[2].calculo = {...calculation, data_calculo:'2026-11-02T18:01:00-03:00'};
+  assert.deepEqual(sortCheckerQueue(rows).map(j=>j.documento?.id_documento),[3,2,1]);
+  assert.deepEqual(rows.map(j=>j.documento?.id_documento),[1,3,2]);
+  assert.deepEqual(rows.map(j=>checkerStatus(j).label),['Pendente','Rejeitado','Aprovado']);
+});
+test('resumo mantém documento, dados completos e ações fora da renderização inicial', () => {
+  const html=renderToStaticMarkup(<CheckerInvoice journey={checkerJourney('processamento_concluido')} reload={()=>{}} expanded={false} onToggle={()=>{}} />);
+  for(const text of ['aria-expanded="false"','checker-status pending','Pendente','Concessionária confirmada','Maker #42','100,00','90,00','10,00','Data/hora','Prefixo / unidade','checker-card-top','checker-fields','checker-action','Analisar']) assert.ok(html.includes(text),text);
+  for(const text of ['Analisar fatura','<object','<img','Dados completos extraídos','Confirmar fatura','Rejeitar fatura','Documento enviado']) assert.ok(!html.includes(text),text);
+});
+test('status e ação compacta são preservados no resumo', () => {
+  for (const [status, tone, label, action] of [
+    ['processamento_concluido','pending','Pendente','Analisar'],
+    ['confirmada_checker','approved','Aprovado','Ver detalhes'],
+    ['rejeitada_checker','rejected','Rejeitado','Ver detalhes'],
+  ]) {
+    const html = renderToStaticMarkup(<CheckerInvoice journey={checkerJourney(status)} reload={()=>{}} expanded={false} onToggle={()=>{}} />);
+    for (const text of [`checker-status ${tone}`,label,action]) assert.ok(html.includes(text),text);
+  }
+});
+test('expansão mostra documento, memória, pendências e ações somente para pendentes', () => {
+  for(const status of ['processamento_concluido','confirmada_checker','rejeitada_checker']) {
+    const html=renderToStaticMarkup(<CheckerInvoice journey={checkerJourney(status)} reload={()=>{}} expanded onToggle={()=>{}} />);
+    for(const text of ['aria-expanded="true"','role="region"','<object','Dados completos extraídos','Ver detalhes do cálculo','Pendências e alertas']) assert.ok(html.includes(text),text);
+    assert.equal(html.includes('Confirmar fatura'),status==='processamento_concluido');
+    assert.equal(html.includes('Rejeitar fatura'),status==='processamento_concluido');
+  }
+});
+test('acordeão abre um item, troca o item aberto e permite recolher', () => {
+  let expanded: number | null = null;
+  expanded=toggleCheckerCard(expanded,1);
+  assert.equal(expanded,1);
+  expanded=toggleCheckerCard(expanded,2);
+  assert.equal(expanded,2);
+  expanded=toggleCheckerCard(expanded,2);
+  assert.equal(expanded,null);
+});
