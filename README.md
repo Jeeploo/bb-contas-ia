@@ -42,11 +42,11 @@ As credenciais abaixo são deliberadamente fracas, exclusivas do ambiente demons
 
 | Perfil | Senha | 2º fator |
 | --- | --- | --- |
-| Maker Recife | - | - |
-| Maker Paulista | - | - |
-| Maker Multi-Prefixo | - | - |
-| Checker | - | - |
-| Alçada reduzida | - | - |
+| Maker Recife |***** | ***** |
+| Maker Paulista | ***** | ***** |
+| Maker Multi-Prefixo | *****| ***** |
+| Checker | ***** | ***** |
+| Alçada reduzida | ***** | ***** |
 
 ## Jornada da fatura
 
