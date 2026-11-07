@@ -38,15 +38,15 @@ O Render Free pode entrar em estado de inatividade; a primeira requisição pode
 
 Com `DEMO_MODE=true`, o campo matrícula vira um seletor de perfil. Senha e 2º fator permanecem obrigatórios, e a autenticação continua sendo processada pelo backend. A sessão usa cookie HttpOnly e fornece identidade, prefixos autorizados e permissões. Maker/Checker e alçadas continuam validados no backend.
 
-As credenciais abaixo são deliberadamente fracas, exclusivas do ambiente demonstrativo e destinadas à apresentação pública do MVP. O 2º fator é um código de demonstração; essa autenticação não é adequada para produção.
+Credenciais de demonstração disponíveis mediante solicitação.
 
-| Perfil | Senha | 2º fator |
-| --- | --- | --- |
-| Maker Recife |***** | ***** |
-| Maker Paulista | ***** | ***** |
-| Maker Multi-Prefixo | *****| ***** |
-| Checker | ***** | ***** |
-| Alçada reduzida | ***** | ***** |
+| Perfil | 
+| --- | 
+| Maker Recife |
+| Maker Paulista | 
+| Maker Multi-Prefixo | 
+| Checker | 
+| Alçada reduzida | 
 
 ## Jornada da fatura
 
