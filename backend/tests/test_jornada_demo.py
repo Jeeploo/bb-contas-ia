@@ -112,9 +112,9 @@ class JornadaDemoTests(unittest.TestCase):
         self.req('post',path,403,params={'id_usuario':3},json={'decisao':'aprovado'})
         result=self.req('post',path,params={'id_usuario':2},json={'decisao':'aprovado','observacao':'Conferido'})
         self.assertEqual(result['processamento']['extracao']['situacao_validacao'],'confirmada_checker')
-        self.req('post',path,403,params={'id_usuario':2},json={'decisao':'rejeitado'})
+        self.req('post',path,403,params={'id_usuario':2},json={'decisao':'rejeitado','motivo':'Valor divergente'})
         r=self.read(); self.confirm(r); self.calculate(r)
-        result=self.req('post',f"documentos/{r['documento']['id_documento']}/decisao-checker",params={'id_usuario':2},json={'decisao':'rejeitado'})
+        result=self.req('post',f"documentos/{r['documento']['id_documento']}/decisao-checker",params={'id_usuario':2},json={'decisao':'rejeitado','motivo':'Valor divergente'})
         self.assertEqual(result['processamento']['extracao']['situacao_validacao'],'rejeitada_checker')
 
     def test_resumo_preserva_original_e_correcao(self):
@@ -324,3 +324,65 @@ class JornadaDemoTests(unittest.TestCase):
         self.req('post', f"documentos/{r['documento']['id_documento']}/confirmar-jornada", 422,
                  params={'id_usuario': 1}, json={'valores': {'d' + str(field['id_dado_extraido']): 'invalida'}})
         self.assertTrue(all(f['situacao_validacao'] != 'validada' for f in self.resume()['processamento']['campos_encontrados']))
+
+    def test_devolucao_correcao_reenvio_relatorios(self):
+        from decimal import Decimal
+        self.profile()
+        self.req('post','alcadas',201,json=dict(nome_nivel='Checker',limite_financeiro='1000',data_inicio_vigencia='2026-01-01'))
+        self.req('post','usuarios',201,json=dict(matricula='C',nome='Checker DEMO',funcao='checker',situacao='ativo',id_prefixo=1,id_alcada=1))
+        r=self.read(); self.confirm(r); self.calculate(r)
+        id=r['documento']['id_documento']; path=f'documentos/{id}/decisao-checker'
+        self.assertEqual(self.req('get','faturas',params={'id_usuario':1}),[])
+        self.req('post',path,403,params={'id_usuario':2},json={'decisao':'rejeitado'})
+        self.req('post',path,params={'id_usuario':2},json={'decisao':'rejeitado','motivo':'Valor divergente'})
+        self.assertEqual(self.req('get','documentos/jornada/checker',params={'id_usuario':2}),[])
+        self.assertEqual(self.resume()['processamento']['extracao']['situacao_validacao'],'rejeitada_checker')
+        self.assertIsNone(self.resume()['calculo'])
+        field=next(f for f in r['campos_encontrados'] if f['campo_identificado']=='valor_original')
+        self.req('post',f'documentos/{id}/confirmar-jornada',params={'id_usuario':1},json={'valores':{'d'+str(field['id_dado_extraido']):'700.00'},'enviar':False})
+        self.req('post',f'documentos/{id}/confirmar-jornada',params={'id_usuario':1},json={'enviar':True})
+        self.assertEqual(self.calculate(r)['valor_calculado'],'700.00')
+        self.req('post',path,params={'id_usuario':2},json={'decisao':'aprovado'})
+        self.assertEqual(self.req('get','documentos/jornada/checker',params={'id_usuario':2}),[])
+        rows=self.req('get','faturas',params={'id_usuario':1})
+        self.assertEqual(rows[0]['confirmado_por'],'Checker DEMO')
+        self.assertTrue(rows[0]['solicitado_por']); self.assertTrue(rows[0]['prefixo']); self.assertTrue(rows[0]['data_confirmacao'])
+        report=self.req('get','relatorios/resumo',params={'id_usuario':1,'tipo':'energia'})
+        self.assertEqual(Decimal(report['valor_total']),Decimal('700'))
+        self.assertEqual(report['quantidade'],1)
+        self.assertEqual(Decimal(report['mensal'][0]['valor']),Decimal('700'))
+        self.assertEqual(self.req('get','relatorios/resumo',params={'id_usuario':1,'tipo':'agua'})['quantidade'],0)
+        self.assertEqual(self.req('get','relatorios/resumo',params={'id_usuario':1,'data_inicio':'2027-01-01'})['quantidade'],0)
+        history=self.resume()['processamento']['extracao']['historico_validacao_documental']
+        self.assertEqual(len([h for h in history if h.get('evento')=='DECISAO_CHECKER']),2)
+        self.assertTrue(any(h.get('evento')=='CORRIGIDO_MAKER' for h in history))
+        self.provider.interpretar_documento.assert_called_once()
+
+    def test_relatorios_agua_energia_mensal_filtros_e_unidades(self):
+        from decimal import Decimal
+        self.profile()
+        self.req('patch','perfis_processamento/1',json={'data_fim_vigencia':'2026-09-30'})
+        rule=self.req('post','regras_calculo',201,json=dict(nome_regra='Água',categoria='agua',versao='1',data_inicio_vigencia='2026-01-01',situacao='ativa'))
+        self.req('post','perfis_processamento',201,json=dict(id_prefixo=1,id_regra=rule['id_regra'],tipo_servico='agua',estrategia='VALOR_INTEGRAL',parametros={},situacao='ativo',data_inicio_vigencia='2026-10-01',data_fim_vigencia='2026-10-31'))
+        self.req('post','alcadas',201,json=dict(nome_nivel='Checker',limite_financeiro='10000',data_inicio_vigencia='2026-01-01'))
+        self.req('post','usuarios',201,json=dict(matricula='C',nome='Checker',funcao='checker',situacao='ativo',id_prefixo=1,id_alcada=1))
+        for changes in [dict(valor_total='100'),dict(tipo_documento='CONTA_AGUA',consumo_kwh=None,consumo_m3='12',valor_total='50',competencia='10/2026'),dict(valor_total='200')]:
+            r=self.read(**changes); self.confirm(r); self.calculate(r)
+            self.req('post',f"documentos/{r['documento']['id_documento']}/decisao-checker",params={'id_usuario':2},json={'decisao':'aprovado'})
+        # Uma pendente e uma devolvida não entram nos indicadores.
+        r=self.read(); self.confirm(r); self.calculate(r)
+        r=self.read(); self.confirm(r); self.calculate(r)
+        self.req('post',f"documentos/{r['documento']['id_documento']}/decisao-checker",params={'id_usuario':2},json={'decisao':'rejeitado','motivo':'Outro','observacao':'Conferir documento'})
+        result=self.req('get','relatorios/resumo',params={'id_usuario':1,'id_prefixo':1})
+        self.assertEqual(result['quantidade'],3)
+        self.assertEqual(Decimal(str(result['valor_total'])),Decimal('350'))
+        self.assertEqual(Decimal(str(result['energia'])),Decimal('1046'))
+        self.assertEqual(Decimal(str(result['agua'])),Decimal('12'))
+        self.assertEqual([Decimal(str(m['valor'])) for m in result['mensal']],[Decimal('300'),Decimal('50')])
+        for tipo,quantity,amount in [('agua',1,'50'),('energia',2,'300')]:
+            filtered=self.req('get','relatorios/resumo',params={'id_usuario':1,'tipo':tipo})
+            self.assertEqual(filtered['quantidade'],quantity)
+            self.assertEqual(Decimal(str(filtered['valor_total'])),Decimal(amount))
+        self.assertEqual(self.req('get','relatorios/resumo',params={'id_usuario':1,'data_inicio':'2026-10-01','data_fim':'2026-10-31'})['quantidade'],1)
+        self.req('get','relatorios/resumo',403,params={'id_usuario':1,'id_prefixo':99})
+        self.req('get','relatorios/resumo',422,params={'id_usuario':1,'data_inicio':'2027-01-01','data_fim':'2026-01-01'})

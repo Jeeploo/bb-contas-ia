@@ -41,6 +41,8 @@ def upload_inicial(session: DatabaseSession, file: UploadFile, contexto=Depends(
 
 
 class JornadaRead(BaseModel):
+    prefixo: str = ""
+    maker: str = ""
     documento: DocumentoRead | None
     processamento: ProcessamentoInteligenteRead | None
     calculo: dict | None
@@ -49,6 +51,7 @@ class JornadaRead(BaseModel):
 class DecisaoChecker(BaseModel):
     decisao: Literal['aprovado', 'rejeitado']
     observacao: str = ''
+    motivo: str = ''
 
 
 class ConfirmacaoJornada(BaseModel):
@@ -99,7 +102,7 @@ def nova_fatura(id_documento: int, session: DatabaseSession, contexto=Depends(ge
 @router.post('/{id_documento}/decisao-checker', response_model=JornadaRead)
 def decidir_checker(id_documento: int, data: DecisaoChecker, session: DatabaseSession, contexto=Depends(get_contexto_operacional)):
     from app.services.jornada_demo import JornadaDemoService
-    return JornadaDemoService(session).decidir(id_documento, contexto, data.decisao, data.observacao)
+    return JornadaDemoService(session).decidir(id_documento, contexto, data.decisao, data.observacao, data.motivo)
 
 
 @router.get('/{id_documento}/arquivo')

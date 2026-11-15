@@ -19,18 +19,20 @@ function calculationTime(value: string) {
   return new Date(value + (/Z$|[+-]\d{2}:\d{2}$/.test(value) ? '' : 'Z')).getTime();
 }
 export function sortCheckerQueue(journeys: JornadaPersistida[]) {
-  return journeys.filter(j => j.processamento && j.calculo).slice().sort((a, b) => calculationTime(b.calculo!.data_calculo) - calculationTime(a.calculo!.data_calculo));
+  return journeys.filter(j => j.processamento?.extracao.situacao_validacao === 'processamento_concluido' && j.calculo).slice().sort((a, b) => calculationTime(b.calculo!.data_calculo) - calculationTime(a.calculo!.data_calculo));
 }
 export function CheckerInvoice({ journey, reload, expanded, onToggle }: { journey: JornadaPersistida; reload: () => void; expanded: boolean; onToggle: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [observacao, setObservacao] = useState('');
+  const [motivo, setMotivo] = useState('');
   const result = journey.processamento;
   if (!result || !journey.calculo) return null;
   async function decide(decisao: 'aprovado' | 'rejeitado') {
     if (!result) return;
+    if (decisao === 'rejeitado' && (!motivo || motivo === 'Outro' && !observacao.trim())) { setError('Informe o motivo da devolução. Para Outro, preencha a observação.'); return; }
     setBusy(true); setError('');
-    try { await api.decidirDocumento(result.documento.id_documento, decisao, observacao); reload(); }
+    try { await api.decidirDocumento(result.documento.id_documento, decisao, observacao, motivo); reload(); }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
   const status = checkerStatus(journey);
@@ -45,11 +47,11 @@ export function CheckerInvoice({ journey, reload, expanded, onToggle }: { journe
     ['Tipo da conta', ({CONTA_ENERGIA:'Energia', CONTA_AGUA:'Água', energia:'Energia', agua:'Água'} as Record<string,string>)[type] ?? type],
     ['Concessionária', field('concessionaria', 'nome_concessionaria')],
     ['Competência', formatCompetenciaDisplay(field('competencia'))],
-    ['Prefixo / unidade', `${field('prefixo', 'agencia')} / ${field('unidade_consumidora', 'unidade_consumo', 'numero_conta')}`],
+    ['Prefixo / unidade', `${journey.prefixo || field('prefixo', 'agencia')} / ${field('unidade_consumidora', 'unidade_consumo', 'numero_conta')}`],
     ['Valor original', money(journey.calculo.valor_inicial)],
     ['Valor calculado', money(journey.calculo.valor_calculado)],
     ['Diferença', journey.calculo.memoria_calculo?.diferenca !== undefined ? money(journey.calculo.memoria_calculo.diferenca) : 'Não informada'],
-    ['Usuário maker', maker?.id_usuario != null ? `Maker #${String(maker.id_usuario)}` : 'Não informado'],
+    ['Usuário maker', journey.maker || (maker?.id_usuario != null ? `Maker #${String(maker.id_usuario)}` : 'Não informado')],
     ['Data/hora', new Date(calculationTime(journey.calculo.data_calculo)).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })],
   ];
   return <article className="card checker-card">
@@ -68,9 +70,9 @@ export function CheckerInvoice({ journey, reload, expanded, onToggle }: { journe
       {result.itens_encontrados.map(i => <tr key={`i${i.id_item_extraido}`}><td>{i.tipo_normalizado}</td><td>{String(i.valor)}</td><td>{String(i.valor_validado ?? '')}</td></tr>)}
     </tbody></table></div>
     <CalculationSummary calculo={journey.calculo} /><DocumentaryAlerts extracao={result.extracao} confirmado />
-    {result.extracao.situacao_validacao === 'processamento_concluido' ? <><label>Observação<input value={observacao} onChange={e => setObservacao(e.target.value)} disabled={busy} /></label>
-      <div className="actions"><button className="primary" disabled={busy} onClick={() => void decide('aprovado')}>Confirmar fatura</button>
-      <button disabled={busy} onClick={() => void decide('rejeitado')}>Rejeitar fatura</button></div></> : <p>Decisão final registrada.</p>}
+    {result.extracao.situacao_validacao === 'processamento_concluido' ? <><label>Motivo da devolução<select aria-label="Motivo da devolução" value={motivo} onChange={e => setMotivo(e.target.value)}><option value="">Selecione</option>{["Valor divergente", "Competência incorreta", "Vencimento incorreto", "Concessionária incorreta", "Unidade consumidora incorreta", "Prefixo incorreto", "Dados incompletos", "Outro"].map(m => <option key={m}>{m}</option>)}</select></label><label>Observação<input value={observacao} onChange={e => setObservacao(e.target.value)} disabled={busy} /></label>
+      <div className="actions"><button className="primary" disabled={busy} onClick={() => void decide('aprovado')}>Aprovar</button>
+      <button disabled={busy} onClick={() => void decide('rejeitado')}>Devolver para ajuste</button></div></> : <p>Decisão final registrada.</p>}
     {result.extracao.historico_validacao_documental?.filter(h => h.evento === 'DECISAO_CHECKER').map((h, i) => <p key={i}>Decisão: {String(h.decisao)} · Usuário #{String(h.id_usuario)} · {String(h.data)} · {String(h.observacao)}</p>)}
     {busy && <p role="status">Registrando decisão…</p>}
     {error && <p role="alert">{error}</p>}
@@ -80,7 +82,7 @@ export function CheckerInvoice({ journey, reload, expanded, onToggle }: { journe
 export function CheckerQueue() {
   const r = useResource(api.filaChecker);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  return <section><h2>Checker — faturas processadas</h2><button onClick={r.reload}>Atualizar faturas</button>
+  return <section><h2>Checker — pendências</h2><button onClick={r.reload}>Atualizar faturas</button>
     {r.loading && <p role="status">Carregando faturas…</p>}{r.error && <p role="alert">{r.error}</p>}
     {r.data && sortCheckerQueue(r.data).map(j => {
       const id = j.processamento!.documento.id_documento;

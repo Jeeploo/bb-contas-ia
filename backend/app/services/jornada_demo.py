@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy import select
-from app.models import Documento, ExtracaoInteligente, Usuario, Alcada, Calculo
+from app.models import Documento, ExtracaoInteligente, Usuario, Alcada, Calculo, Prefixo
 from app.services.contexto_operacional import ContextoOperacionalService
 from app.services.validacao_documental import ValidacaoDocumentalService, politica_revisao, TIPOS, normalizar
 from app.services.calculo_contextual import CalculoContextualService
@@ -12,10 +12,23 @@ from app.services.exceptions import (ContextoOperacionalError, EntityNotFoundErr
 
 
 def evento(extraction, name):
-    return next((h for h in reversed(extraction.historico_validacao_documental or []) if h.get('evento') == name), None)
+    history = extraction.historico_validacao_documental or []
+    if name in ('CALCULO_DEMO', 'ENVIADO_PARA_VALIDACAO'):
+        for h in reversed(history):
+            if h.get('evento') == 'CORRIGIDO_MAKER':
+                return None
+            if h.get('evento') == name:
+                return h
+        return None
+    return next((h for h in reversed(history) if h.get('evento') == name), None)
 
 
 def registrar(extraction, name, **data):
+    if data.get('id_usuario'):
+        from sqlalchemy.orm import object_session
+        session = object_session(extraction)
+        user = session.get(Usuario, data['id_usuario']) if session else None
+        data['usuario_nome'] = user.nome if user else ''
     extraction.historico_validacao_documental = [*(extraction.historico_validacao_documental or []),
         dict(evento=name, data=datetime.now(timezone.utc).isoformat(), **data)]
 
@@ -38,6 +51,8 @@ class JornadaDemoService:
     def calculo_persistido(self, document, extraction):
         if extraction is None:
             return None
+        if extraction.situacao_validacao == 'rejeitada_checker' or evento(extraction, 'CORRIGIDO_MAKER') and not evento(extraction, 'CALCULO_DEMO'):
+            return None
         snapshot = evento(extraction, 'CALCULO_DEMO')
         if snapshot:
             return snapshot['calculo']
@@ -52,7 +67,9 @@ class JornadaDemoService:
         return None
 
     def resposta(self, document, extraction):
-        return dict(documento=document, processamento=ProcessamentoInteligenteRead(documento=document, extracao=extraction,
+        prefix = self.session.get(Prefixo, document.id_prefixo_contexto or (document.conta.id_prefixo if document.conta else None))
+        maker = self.session.get(Usuario, document.id_usuario_contexto) if document.id_usuario_contexto else None
+        return dict(prefixo=prefix.codigo_prefixo if prefix else '', maker=maker.nome if maker else '', documento=document, processamento=ProcessamentoInteligenteRead(documento=document, extracao=extraction,
                 campos_encontrados=extraction.dados_extraidos, itens_encontrados=extraction.itens_extraidos,
                 confianca_geral=extraction.nivel_confianca, situacao=extraction.situacao_validacao,
                 metadados_ia=extraction.metadados_ia or {}) if extraction else None,
@@ -62,14 +79,18 @@ class JornadaDemoService:
         prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
         documents = self.session.scalars(select(Documento).where(
             Documento.id_usuario_contexto == contexto.id_usuario,
-            Documento.id_prefixo_contexto == prefix.id_prefixo).order_by(Documento.id_documento.desc()).limit(1)).all()
+            Documento.id_prefixo_contexto == prefix.id_prefixo).order_by(Documento.id_documento.desc())).all()
+        documents = sorted(documents, key=lambda d: not any(e.situacao_validacao in ('rejeitada_checker', 'em_revisao') for e in self.session.scalars(select(ExtracaoInteligente).where(ExtracaoInteligente.id_documento == d.id_documento))))
         for document in documents:
             if document.origem == 'upload_encerrado':
                 return dict(documento=None, processamento=None, calculo=None)
             extraction = self.session.scalar(select(ExtracaoInteligente).where(
                 ExtracaoInteligente.id_documento == document.id_documento).order_by(ExtracaoInteligente.id_extracao.desc()))
             # Encerrar a jornada visual nunca apaga o documento nem volta a jornadas anteriores.
-            if extraction and evento(extraction, 'NOVA_FATURA'):
+            history = extraction.historico_validacao_documental if extraction else []
+            closed = max((i for i,h in enumerate(history) if h.get('evento') == 'NOVA_FATURA'), default=-1)
+            active = max((i for i,h in enumerate(history) if h.get('evento') in ('CORRIGIDO_MAKER', 'CALCULO_DEMO') or h.get('evento') == 'DECISAO_CHECKER' and h.get('decisao') == 'rejeitado'), default=-1)
+            if closed >= 0 and closed > active:
                 return dict(documento=None, processamento=None, calculo=None)
             if extraction and extraction.evidencias_validacao_documental.get('versao_validador', 0) < 3:
                 ValidacaoDocumentalService(self.session).revalidar(extraction)
@@ -80,9 +101,13 @@ class JornadaDemoService:
     def calcular(self, document_id, contexto):
         try:
             document, extraction, prefix = self.obter(document_id, contexto)
+            if extraction and extraction.situacao_validacao == 'rejeitada_checker':
+                raise ContextoOperacionalError('Corrija e reenvie a fatura antes de calcular')
             if extraction is None or not evento(extraction, 'ENVIADO_PARA_VALIDACAO'):
                 raise ContextoOperacionalError('Envie o documento para validação antes do cálculo')
             existing = evento(extraction, 'CALCULO_DEMO')
+            if not existing and document.id_usuario_contexto != contexto.id_usuario:
+                raise ContextoOperacionalError('Somente o Maker responsável pode calcular')
             if existing:
                 return existing['calculo']
             ValidacaoDocumentalService(self.session).revalidar(extraction)
@@ -121,6 +146,11 @@ class JornadaDemoService:
         from app.services.conta_consumo import ContaConsumoService
         try:
             document, extraction, _ = self.obter(document_id, contexto)
+            if document.id_usuario_contexto != contexto.id_usuario:
+                raise ContextoOperacionalError('Somente o Maker responsável pode corrigir')
+            if extraction and extraction.situacao_validacao == 'rejeitada_checker':
+                registrar(extraction, 'CORRIGIDO_MAKER', id_usuario=contexto.id_usuario)
+                extraction.situacao_validacao = 'em_revisao'
             if extraction is None or evento(extraction, 'CALCULO_DEMO'):
                 raise ContextoOperacionalError('Documento sem leitura editável')
             for field in extraction.dados_extraidos:
@@ -134,6 +164,7 @@ class JornadaDemoService:
                     {'valor_validado': item.valor_validado} if item.valor_validado is not None else {}))
                 ItemExtraidoService(self.session).validar(item.id_item_extraido, data, defer=True)
             if enviar:
+                registrar(extraction, 'REENVIADO' if evento(extraction, 'CORRIGIDO_MAKER') else 'ENVIADO_MAKER', id_usuario=contexto.id_usuario)
                 encaminhar_revisao(self.session, extraction, contexto)
             else:
                 ValidacaoDocumentalService(self.session).revalidar(extraction, contexto)
@@ -159,10 +190,11 @@ class JornadaDemoService:
         prefix = ContextoOperacionalService(self.session).resolver(contexto.id_usuario, contexto.id_prefixo)
         extractions = self.session.scalars(select(ExtracaoInteligente).where(
             ExtracaoInteligente.id_prefixo_contexto == prefix.id_prefixo,
-            ExtracaoInteligente.situacao_validacao.in_(['processamento_concluido', 'confirmada_checker', 'rejeitada_checker']))).all()
-        return [self.resposta(e.documento, e) for e in extractions if evento(e, 'CALCULO_DEMO')]
+            ExtracaoInteligente.situacao_validacao.in_(['processamento_concluido']))).all()
+        rows = [self.resposta(e.documento, e) for e in extractions if evento(e, 'CALCULO_DEMO')]
+        return sorted(rows, key=lambda r: r['calculo']['data_calculo'], reverse=True)
 
-    def decidir(self, document_id, contexto, decisao, observacao):
+    def decidir(self, document_id, contexto, decisao, observacao, motivo=""):
         try:
             document, extraction, _ = self.obter(document_id, contexto)
             if not extraction or extraction.situacao_validacao != 'processamento_concluido':
@@ -170,7 +202,7 @@ class JornadaDemoService:
             calculation = evento(extraction, 'CALCULO_DEMO')
             if not calculation:
                 raise ContextoOperacionalError('Fatura sem cálculo válido')
-            if calculation['id_usuario'] == contexto.id_usuario:
+            if document.id_usuario_contexto == contexto.id_usuario or calculation['id_usuario'] == contexto.id_usuario:
                 raise SelfApprovalNotAllowedError('O criador não pode decidir sobre a própria fatura')
             if decisao == 'aprovado':
                 ValidacaoDocumentalService(self.session).revalidar(extraction)
@@ -180,7 +212,9 @@ class JornadaDemoService:
                 limit = self.session.get(Alcada, user.id_alcada) if user.id_alcada else None
                 if limit is None or limit.limite_financeiro < Decimal(calculation['calculo']['valor_calculado']):
                     raise InsufficientApprovalLimitError('Alçada financeira inferior ao valor da fatura')
-            registrar(extraction, 'DECISAO_CHECKER', id_usuario=contexto.id_usuario, decisao=decisao, observacao=observacao)
+            if decisao == 'rejeitado' and (not motivo.strip() or motivo == 'Outro' and not observacao.strip()):
+                raise ContextoOperacionalError('Informe o motivo da devolução e observação para Outro')
+            registrar(extraction, 'DECISAO_CHECKER', id_usuario=contexto.id_usuario, decisao=decisao, motivo=motivo, observacao=observacao, estado=extraction.situacao_validacao, versao=extraction.id_extracao, calculo=calculation['calculo'], campos=[dict(campo=f.campo_identificado, valor=f.valor_validado) for f in extraction.dados_extraidos], itens=[dict(id=i.id_item_extraido, tipo=i.tipo_normalizado, valor=str(i.valor_validado)) for i in extraction.itens_extraidos])
             extraction.situacao_validacao = 'confirmada_checker' if decisao == 'aprovado' else 'rejeitada_checker'
             if document.conta:
                 document.conta.situacao = extraction.situacao_validacao

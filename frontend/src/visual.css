@@ -308,3 +308,14 @@ main { width: 100%; max-width: 1360px; padding: 26px 38px 32px; }
   .access-form { position: relative; }
   .access-card { max-width: 420px; margin: auto; padding: 26px; }
 }
+/* Refinamento da conferência e indicadores gerenciais */
+.summary-card .invoice-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.summary-card .invoice-fields > div {padding:12px;background:#f4f7fb;border-radius:10px;min-width:0}
+.summary-card .invoice-fields dt {display:flex;align-items:center;gap:6px;font-size:12px;color:#58677c}
+.summary-card .invoice-fields dd {margin:6px 0 0;font-size:16px;overflow-wrap:anywhere}
+.summary-card details {margin:12px 0}.report-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}.report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.report-chart{min-width:0;margin-bottom:16px}.table-wrap{max-width:100%;overflow-x:auto}@media(max-width:800px){.report-kpis,.report-grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.report-kpis,.report-grid{grid-template-columns:1fr}}
+.report-grid > :only-child {grid-column:1 / -1}
+.summary-card .invoice-fields {grid-template-columns:repeat(4,minmax(0,1fr))}
+.summary-card .invoice-fields .barcode-field {grid-column:span 2}
+@media(max-width:1000px){.summary-card .invoice-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.summary-card .invoice-fields{grid-template-columns:1fr}.summary-card .invoice-fields .barcode-field{grid-column:auto}}

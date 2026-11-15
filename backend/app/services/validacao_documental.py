@@ -186,7 +186,8 @@ def politica_revisao(extraction):
 
 def encaminhar_revisao(session, extraction, contexto=None):
     from app.services.exceptions import ContextoOperacionalError
-    if any(h.get('evento') == 'CALCULO_DEMO' for h in extraction.historico_validacao_documental or []):
+    from app.services.jornada_demo import evento
+    if evento(extraction, 'CALCULO_DEMO'):
         raise ContextoOperacionalError("Processamento já concluído")
     service = ValidacaoDocumentalService(session)
     service.revalidar(extraction, contexto)

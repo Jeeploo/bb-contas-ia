@@ -201,6 +201,6 @@ export interface AuthSession {
     expira_em: string;
 }
 
-export interface JornadaPersistida { documento: Documento | null; processamento: ProcessamentoDocumento | null; calculo: ResultadoCalculo | null }
+export interface JornadaPersistida { prefixo?: string; maker?: string; documento: Documento | null; processamento: ProcessamentoDocumento | null; calculo: ResultadoCalculo | null }
 
 export type ResultadoCalculo = Calculo | (Omit<Calculo, "id_calculo" | "id_conta" | "id_regra"> & { id_regra: number | null; id_calculo?: never; id_conta: number | null; id_extracao: number; origem: "documental_demo" });

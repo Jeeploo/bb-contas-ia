@@ -208,19 +208,19 @@ const checkerJourney = (status: string, id = 1): JornadaPersistida => {
     {id_dado_extraido:1,id_extracao:1,campo_identificado:'concessionaria',valor_extraido:'Concessionária original',valor_validado:'Concessionária confirmada',nivel_confianca:null,situacao_validacao:'validada'},
   ],itens_encontrados:[],confianca_geral:null,situacao:status}};
 };
-test('fila ordena por data/hora decrescente independentemente do status sem alterar a entrada', () => {
+test('fila ordena por data/hora decrescente apenas com pendentes sem alterar a entrada', () => {
   const rows = [checkerJourney('processamento_concluido',1), checkerJourney('rejeitada_checker',3), checkerJourney('confirmada_checker',2)];
   rows[0].calculo = {...calculation, data_calculo:'2026-11-01T21:00:00Z'};
   rows[1].calculo = {...calculation, data_calculo:'2026-11-02T21:02:00'};
   rows[2].calculo = {...calculation, data_calculo:'2026-11-02T18:01:00-03:00'};
-  assert.deepEqual(sortCheckerQueue(rows).map(j=>j.documento?.id_documento),[3,2,1]);
+  assert.deepEqual(sortCheckerQueue(rows).map(j=>j.documento?.id_documento),[1]);
   assert.deepEqual(rows.map(j=>j.documento?.id_documento),[1,3,2]);
   assert.deepEqual(rows.map(j=>checkerStatus(j).label),['Pendente','Rejeitado','Aprovado']);
 });
 test('resumo mantém documento, dados completos e ações fora da renderização inicial', () => {
   const html=renderToStaticMarkup(<CheckerInvoice journey={checkerJourney('processamento_concluido')} reload={()=>{}} expanded={false} onToggle={()=>{}} />);
   for(const text of ['aria-expanded="false"','checker-status pending','Pendente','Concessionária confirmada','Maker #42','100,00','90,00','10,00','Data/hora','Prefixo / unidade','checker-card-top','checker-fields','checker-action','Analisar']) assert.ok(html.includes(text),text);
-  for(const text of ['Analisar fatura','<object','<img','Dados completos extraídos','Confirmar fatura','Rejeitar fatura','Documento enviado']) assert.ok(!html.includes(text),text);
+  for(const text of ['Analisar fatura','<object','<img','Dados completos extraídos','Aprovar','Devolver para ajuste','Documento enviado']) assert.ok(!html.includes(text),text);
 });
 test('status e ação compacta são preservados no resumo', () => {
   for (const [status, tone, label, action] of [
@@ -236,8 +236,8 @@ test('expansão mostra documento, memória, pendências e ações somente para p
   for(const status of ['processamento_concluido','confirmada_checker','rejeitada_checker']) {
     const html=renderToStaticMarkup(<CheckerInvoice journey={checkerJourney(status)} reload={()=>{}} expanded onToggle={()=>{}} />);
     for(const text of ['aria-expanded="true"','role="region"','<object','Dados completos extraídos','Ver detalhes do cálculo','Pendências e alertas']) assert.ok(html.includes(text),text);
-    assert.equal(html.includes('Confirmar fatura'),status==='processamento_concluido');
-    assert.equal(html.includes('Rejeitar fatura'),status==='processamento_concluido');
+    assert.equal(html.includes('Aprovar'),status==='processamento_concluido');
+    assert.equal(html.includes('Devolver para ajuste'),status==='processamento_concluido');
   }
 });
 test('acordeão abre um item, troca o item aberto e permite recolher', () => {
@@ -248,4 +248,23 @@ test('acordeão abre um item, troca o item aberto e permite recolher', () => {
   assert.equal(expanded,2);
   expanded=toggleCheckerCard(expanded,2);
   assert.equal(expanded,null);
+});
+
+import { ReportChart } from '../src/pages/Relatorios';
+test('relatórios mostram unidades separadas, valores acessíveis e estado vazio', () => {
+  for (const unit of ['kWh', 'm³', 'R$']) {
+    const html=renderToStaticMarkup(<ReportChart title={`Evolução em ${unit}`} unit={unit} line={unit !== 'R$'} rows={[{label:'2026-09',value:523},{label:'2026-10',value:600}]} />);
+    assert.ok(html.includes('role="img"'));
+    assert.ok(html.includes('2026-09: 523'));
+    assert.ok(html.includes(unit));
+    assert.ok(html.includes(unit === 'R$' ? '<rect' : '<polyline'));
+  }
+  const empty=renderToStaticMarkup(<ReportChart title="Gasto mensal" unit="R$" rows={[]} />);
+  assert.ok(empty.includes('Sem dados no período.'));
+  assert.ok(!empty.includes('<svg'));
+});
+test('devolvida e em correção retornam ao resumo mesmo com cálculo ou envio anteriores', () => {
+  for (const status of ['rejeitada_checker','em_revisao']) {
+    assert.equal(journeyStep({...review,situacao_validacao:status,historico_validacao_documental:[{evento:'ENVIADO_PARA_VALIDACAO'}]}, calculation),2);
+  }
 });

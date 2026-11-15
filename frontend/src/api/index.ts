@@ -2,13 +2,15 @@ import type { JornadaPersistida, ResultadoCalculo } from '../types';
 import { listAll, request } from './client';
 import type { ItemRegra, PerfilProcessamento, ItemExtraido, RespostaCalculoContextual, Localidade, RegraCalculo, ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
 export const api = {
+    faturas: () => request<FaturaAprovada[]>('/faturas'),
+    relatorios: (params: string) => request<Relatorio>('/relatorios/resumo?' + params),
     confirmarJornada: (id: number, valores: Record<string, string>, enviar: boolean) => request<JornadaPersistida>(`/documentos/${id}/confirmar-jornada`, {method:'POST', body:JSON.stringify({valores, enviar})}),
     jornadaDocumento: (id: number) => request<JornadaPersistida>(`/documentos/${id}/jornada`),
     retomarJornada: () => request<JornadaPersistida>('/documentos/jornada/atual'),
     novaFatura: (id: number) => request<void>(`/documentos/${id}/nova-fatura`, {method:'POST'}),
     calcularDocumento: (id: number) => request<ResultadoCalculo>(`/documentos/${id}/calcular-demo`, {method:'POST'}),
     filaChecker: () => request<JornadaPersistida[]>('/documentos/jornada/checker'),
-    decidirDocumento: (id: number, decisao: 'aprovado' | 'rejeitado', observacao: string) => request<JornadaPersistida>(`/documentos/${id}/decisao-checker`, {method:'POST', body:JSON.stringify({decisao, observacao})}),
+    decidirDocumento: (id: number, decisao: 'aprovado' | 'rejeitado', observacao: string, motivo = "") => request<JornadaPersistida>(`/documentos/${id}/decisao-checker`, {method:'POST', body:JSON.stringify({decisao, observacao, motivo})}),
     concessionariasElegiveis: () => request<{id_concessionaria: number; nome: string; ativo: boolean}[]>('/concessionarias/elegiveis/associacao'),
     resolverConcessionaria: (id: number, id_concessionaria: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/resolver-concessionaria`, { method: 'POST', body: JSON.stringify({id_concessionaria}) }),
     revalidarExtracao: (id: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/revalidar`, { method: 'POST' }),
@@ -35,3 +37,6 @@ export const api = {
     validar: (id: number, valor?: string) => request<DadoExtraido>(`/dados_extraidos/${id}/validacao`, { method: 'PATCH', body: JSON.stringify(valor === undefined ? {} : { valor_validado: valor }) }),
     decidir: (id_ordem: number, decisao: 'aprovado' | 'rejeitado', observacao: string) => request<Aprovacao>('/aprovacoes', { method: 'POST', body: JSON.stringify({ id_ordem, decisao, observacao: observacao || null, data_hora: new Date().toISOString() }) }),
 };
+
+export interface FaturaAprovada { id_fatura: number; tipo: string; competencia: string; prefixo: string; valor: string; solicitado_por: string; confirmado_por: string; data_confirmacao: string }
+export interface Relatorio { valor_total: string; quantidade: number; energia: string; agua: string; mensal: {competencia: string; valor: string; energia: string; agua: string}[]; prefixos: {prefixo: string; valor: string}[] }

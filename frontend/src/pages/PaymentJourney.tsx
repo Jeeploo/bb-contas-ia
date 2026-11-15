@@ -150,7 +150,7 @@ export function PaymentJourney() {
   }
   const fields = (() => {
     const values = new Map<string, string>();
-    if (selectedPrefix) values.set("Prefixo", `${selectedPrefix.codigo_prefixo} — ${selectedPrefix.nome}`);
+    if (selectedPrefix) values.set("Prefixo", selectedPrefix.codigo_prefixo);
     for (const d of result?.campos_encontrados ?? []) {
       const value = d.valor_validado ?? d.valor_normalizado ?? d.valor_extraido;
       const label = labels[d.campo_identificado];
@@ -160,9 +160,12 @@ export function PaymentJourney() {
           ["valor_original", "valor_total"].includes(d.campo_identificado) ? money(value) : value,
         );
     }
+    if (selectedPrefix) values.set("Prefixo", selectedPrefix.codigo_prefixo);
+    values.set("Unidade/Agência", selectedPrefix?.nome ?? values.get("Unidade consumidora") ?? "Não informado");
     const unit = values.get("Unidade de consumo");
     if (unit && values.has("Consumo")) { values.set("Consumo", `${values.get("Consumo")} ${unit}`); values.delete("Unidade de consumo"); }
-    const order = ["Tipo da fatura", "Valor da fatura", "Data de vencimento", "Competência", "Prefixo", "Concessionária", "Unidade consumidora", "Consumo", "Código de barras", "Município", "UF"];
+    for (const label of ["Tipo da fatura", "Valor da fatura", "Data de vencimento", "Prefixo", "Unidade/Agência", "Concessionária", "Código de barras"]) if (!values.has(label)) values.set(label, "Não informado");
+    const order = ["Tipo da fatura", "Valor da fatura", "Data de vencimento", "Competência", "Prefixo", "Unidade/Agência", "Concessionária", "Unidade consumidora", "Consumo", "Código de barras", "Município", "UF"];
     return [...values].sort(([a], [b]) => (order.includes(a) ? order.indexOf(a) : order.length) - (order.includes(b) ? order.indexOf(b) : order.length)).map(([label, value]) => ({ label, value }));
   })();
   async function reset() {
@@ -225,25 +228,19 @@ export function PaymentJourney() {
             </div>
           </section>
         ))}
+      {result?.extracao.historico_validacao_documental?.some(h => ["ENVIADO_MAKER","REENVIADO","CORRIGIDO_MAKER","DECISAO_CHECKER"].includes(String(h.evento))) && <details className="card"><summary>Histórico da revisão</summary>{result.extracao.historico_validacao_documental?.filter(h => ["ENVIADO_MAKER","REENVIADO","CORRIGIDO_MAKER","DECISAO_CHECKER"].includes(String(h.evento))).map((h,i)=><p key={i}>{String(h.data)} · {({ENVIADO_MAKER:"Enviado pelo Maker", REENVIADO:"Reenviado pelo Maker", CORRIGIDO_MAKER:"Corrigido pelo Maker", DECISAO_CHECKER:h.decisao === "aprovado" ? "Aprovado pelo Checker" : "Devolvido pelo Checker"} as Record<string,string>)[String(h.evento)]} · {String(h.usuario_nome ?? "")} {String(h.motivo ?? "")} {String(h.observacao ?? "")}</p>)}</details>}
+      {result?.extracao.situacao_validacao === "rejeitada_checker" && <Alert variant="error"><strong>Devolvida pelo Checker</strong><p>Motivo: {String(result.extracao.historico_validacao_documental?.slice().reverse().find(h => h.evento === "DECISAO_CHECKER")?.motivo ?? "")} — {String(result.extracao.historico_validacao_documental?.slice().reverse().find(h => h.evento === "DECISAO_CHECKER")?.observacao ?? "")}</p></Alert>}
       {step === 2 && result && (
         <>
-          <section className="card summary-card"><div className="review-grid">
-            <DocumentPreview file={file} documentId={result.documento.id_documento} documentFormat={result.documento.formato} />
+          <section className="card summary-card"><div>
+            <details><summary>Abrir documento</summary><DocumentPreview file={file} documentId={result.documento.id_documento} documentFormat={result.documento.formato} /></details>
             <section className="summary-content">
               <div className="section-heading">
                 <h2>Resumo da fatura</h2>
-                <button
-                  disabled={busy}
-                  onClick={() => {
-                    setError("");
-                    setEditing(true);
-                  }}
-                >
-                  Editar dados
-                </button>
+
               </div>
               {result.campos_encontrados.length ? (
-                <><InvoiceSummary fields={fields} /><p className="hint">Dados extraídos automaticamente, pendentes de confirmação.</p>{calculo && <CalculationSummary calculo={calculo} />}</>
+                <><InvoiceSummary fields={fields.filter(f => ["Tipo da fatura","Valor da fatura","Data de vencimento","Prefixo","Unidade/Agência","Concessionária","Código de barras"].includes(f.label))} /><details><summary>Ver detalhes</summary><InvoiceSummary fields={fields.filter(f => !["Tipo da fatura","Valor da fatura","Data de vencimento","Prefixo","Unidade/Agência","Concessionária","Código de barras"].includes(f.label))} /></details><p className="hint">Dados extraídos automaticamente, pendentes de confirmação.</p>{calculo && <CalculationSummary calculo={calculo} />}</>
               ) : (
                 <p>
                   Nenhum campo extraído. Envie outro documento com dados
@@ -251,7 +248,7 @@ export function PaymentJourney() {
                 </p>
               )}
               {result.extracao.situacao_validacao === "revisao_cadastral_pendente" && <Alert variant="info"><strong>Documento enviado para validação</strong><p>Revisão cadastral pendente. Pendência que não impede continuar.</p></Alert>}
-              <DocumentaryAlerts confirmado={result.campos_encontrados.every(f => f.situacao_validacao === "validada")} extracao={result.extracao} concessionaria={fields.find(f => f.label === "Concessionária")?.value} />
+              <details open={result.extracao.bloqueia_calculo}><summary>Pendências e alertas — conferir ({result.extracao.pendencias?.length ?? 0})</summary><DocumentaryAlerts confirmado={result.campos_encontrados.every(f => f.situacao_validacao === "validada")} extracao={result.extracao} concessionaria={fields.find(f => f.label === "Concessionária")?.value} /></details>
               {result.itens_encontrados.length > 0 && (
                 <details>
                   <summary>
@@ -270,8 +267,8 @@ export function PaymentJourney() {
             </section>
           </div>
           <div className="actions">
-            <button disabled={busy} onClick={reset}>
-              Nova fatura
+            <button disabled={busy} onClick={() => setEditing(true)}>
+              Editar dados
             </button>
             <button
               className="primary"

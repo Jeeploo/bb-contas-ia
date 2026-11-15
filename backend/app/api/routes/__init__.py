@@ -51,3 +51,6 @@ router.include_router(contexto_router)
 from app.api.routes.auth_demo import router as auth_router
 public_router = APIRouter(prefix="/api/v1")
 public_router.include_router(auth_router)
+
+from app.api.routes.relatorios import router as relatorios_router
+router.include_router(relatorios_router)

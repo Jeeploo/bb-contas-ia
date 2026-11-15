@@ -52,8 +52,8 @@ export function InvoiceSummary({ fields }: { fields: SummaryField[] }) {
     <dl className="invoice-fields">
       {fields.map((f) => (
         <div key={f.label} className={f.label === "Código de barras" ? "barcode-field" : ""}>
-          <dt>{f.label}</dt>
-          <dd>{["Data de vencimento", "Emissão"].includes(f.label) && /^\d{4}-\d{2}-\d{2}$/.test(f.value) ? f.value.split("-").reverse().join("/") : f.label === "Competência" ? formatCompetenciaDisplay(f.value) : ["Unidade consumidora", "Código de barras"].includes(f.label) ? `***${f.value.slice(-4)}` : f.label === "Tipo da fatura" ? ({ CONTA_ENERGIA: "Energia", CONTA_AGUA: "Água", OUTRO: "Outro" }[f.value] ?? f.value) : f.value}</dd>
+          <dt><FileText size={14} aria-hidden="true" /> {f.label}</dt>
+          <dd>{["Data de vencimento", "Emissão"].includes(f.label) && /^\d{4}-\d{2}-\d{2}$/.test(f.value) ? f.value.split("-").reverse().join("/") : f.label === "Competência" ? formatCompetenciaDisplay(f.value) : ["Unidade consumidora", "Código de barras"].includes(f.label) && f.value !== "Não informado" ? `***${f.value.slice(-4)}` : f.label === "Tipo da fatura" ? ({ CONTA_ENERGIA: "Energia", ENERGIA: "Energia", CONTA_AGUA: "Água", AGUA: "Água", OUTRO: "Outro" }[f.value] ?? f.value) : f.value}</dd>
         </div>
       ))}
     </dl>

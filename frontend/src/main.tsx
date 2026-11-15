@@ -10,6 +10,7 @@ import { PaymentJourney } from "./pages/PaymentJourney";
 import { InvoiceHistory } from "./pages/InvoiceHistory";
 import "./styles.css";
 import "./visual.css";
+import { Relatorios } from "./pages/Relatorios";
 function App() {
   const { session, loading } = useAuth();
   if (loading) return <p role="status">Conferindo sessão…</p>;
@@ -24,21 +25,7 @@ function App() {
           <Route path="pagamentos" element={<PaymentJourney />} />
           <Route path="aprovacoes" element={<Aprovacoes />} />
           <Route path="faturas" element={<InvoiceHistory />} />
-          <Route
-            path="relatorios"
-            element={
-              <>
-                <div className="page-title"><h1>Relatórios</h1><p>Acompanhe as informações das suas faturas.</p></div>
-                <section className="card">
-                  <h2>Em breve</h2>
-                  <p>
-                    Os relatórios serão disponibilizados em uma próxima etapa do
-                    MVP.
-                  </p>
-                </section>
-              </>
-            }
-          />
+          <Route path="relatorios" element={<Relatorios />} />
         </Route>
         <Route
           path="*"
