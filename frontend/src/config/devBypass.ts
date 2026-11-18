@@ -2,10 +2,11 @@
 // Ativa em dois casos:
 //  1) `vite` dev com VITE_DEV_BYPASS_LOGIN=true no .env.local;
 //  2) build de DEMONSTRAÇÃO ABERTA (`npm run build:demo`, arquivo .env.demo com VITE_DEMO_ABERTA=true):
-//     versão estática só com dados fictícios, para mostrar o fluxo sem backend e sem login.
+//     versão estática só com dados fictícios, para mostrar o fluxo sem backend. A tela de login
+//     aparece normalmente, mas "Entrar" funciona sem credenciais.
 // Um `vite build` comum (npm run build) não define VITE_DEMO_ABERTA: o bypass nunca ativa nele.
 
-/** Build de demonstração aberta: entra direto, sem tela de login, só com dados fictícios. */
+/** Build de demonstração aberta: login sem credenciais, só com dados fictícios. */
 export function isDemoAberta(): boolean {
   return import.meta.env.VITE_DEMO_ABERTA === 'true';
 }

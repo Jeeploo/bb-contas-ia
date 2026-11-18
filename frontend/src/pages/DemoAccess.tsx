@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { isDevBypass } from "../config/devBypass";
+import { isDemoAberta, isDevBypass } from "../config/devBypass";
 import { request, errorMessage } from "../api/client";
 import { useNavigate } from "react-router-dom";
 import { LockKeyhole, ArrowRight, UserRound, Smartphone } from "lucide-react";
@@ -45,7 +45,9 @@ export function DemoAccess() {
         <label>Senha<span className="access-input"><LockKeyhole size={17} aria-hidden="true" /><input aria-label="Senha" required value={senha} onChange={e=>setSenha(e.target.value)} placeholder="Digite sua senha" type="password" autoComplete="current-password" /></span></label>
         <label>2º fator<span className="access-input"><Smartphone size={17} aria-hidden="true" /><input aria-label="2º fator" required value={fator} onChange={e=>setFator(e.target.value)} placeholder="Digite o código DEMO" type="password" autoComplete="off" /></span></label>
         {demo && <p className="hint">{profiles.find(([value]) => value === matricula)?.[2]}{matricula && <br />}Ambiente demonstrativo. Credenciais simplificadas para fins de apresentação.</p>}
-        {isDevBypass() && <p className="hint" role="note">Modo DEV: login liberado sem backend</p>}
+        {isDemoAberta()
+          ? <p className="hint" role="note">Demonstração: não é preciso preencher os campos. Clique em Entrar.</p>
+          : isDevBypass() && <p className="hint" role="note">Modo DEV: login liberado sem backend</p>}
         {(error || auth.error) && <p className="notice error" role="alert">{error || auth.error}</p>}
         <button className="primary" disabled={busy}>{busy ? "Entrando…" : "Entrar"} <ArrowRight size={17} /></button>
       </form></section>

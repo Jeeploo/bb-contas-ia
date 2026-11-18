@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { request, ApiError, errorMessage } from '../api/client';
 import type { AuthSession } from '../types';
 import { AuthContext } from './AuthContext';
-import { isDemoAberta, isDevBypass } from '../config/devBypass';
+import { isDevBypass } from '../config/devBypass';
 import { createDevSession, loadDevSession, saveDevSession } from './devBypass';
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -11,8 +11,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
-    // Demo aberta: já entra com o usuário fictício, sem passar pela tela de login.
-    if (isDemoAberta()) { setSession(createDevSession()); setLoading(false); return () => { active = false; }; }
     if (isDevBypass()) { setSession(loadDevSession()); setLoading(false); return () => { active = false; }; }
     request<AuthSession>('/auth/sessao').then(s => { if (active) setSession(s); }).catch(e => {
       if (active && !(e instanceof ApiError && e.status === 401)) setError(errorMessage(e));
@@ -27,8 +25,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(result); setError('');
   }
   async function logout() {
-    // Demo aberta: "Sair" não leva à tela de login; o visitante continua navegando.
-    if (isDemoAberta()) return;
     if (isDevBypass()) { saveDevSession(null); setSession(null); setError(''); return; }
     try { await request('/auth/logout', { method:'POST' }); }
     catch (e) { if (!(e instanceof ApiError && e.status === 401)) throw e; }
