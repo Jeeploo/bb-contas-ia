@@ -1,21 +1,24 @@
+import type { ReactNode } from 'react';
 import type { ExtracaoInteligente } from '../../types';
 import { DocumentaryAlerts, Alert } from './DocumentaryAlerts';
 export interface OpcaoConcessionaria { id_concessionaria: number; nome: string; ativo: boolean }
-export function ConcessionariaReview({extracao, nome, busy, onAssociate, onCalculate}: {
+export function ConcessionariaReview({extracao, nome, busy, onAssociate, onCalculate, footerStart, footerEnd, children}: {
   extracao: ExtracaoInteligente; nome?: string; busy: boolean; onAssociate: () => void; onCalculate: () => void;
+  footerStart?: ReactNode; footerEnd?: ReactNode; children?: ReactNode;
 }) {
   const pending = extracao.pendencias?.some(p => p.tipo === 'CORRESPONDENCIA_CONCESSIONARIA');
-  return <section className="card validation-card">
-    <h2>Documento enviado para validação</h2>
+  const concessionaria = String(extracao.evidencias_validacao_documental?.nome_concessionaria ?? '');
+  return <section className="card validation-card validacao-card">
+    <div className="upload-heading resumo-heading"><span className="section-number">3</span><div><h2>Validação e cálculo</h2><p>Confira os dados extraídos e analise a unidade antes de calcular a fatura</p></div></div>
+    {children && <div className="validacao-corpo">{children}</div>}
     {pending ? <><Alert variant="warning"><strong>Pendência cadastral</strong><p>Concessionária sem correspondência</p></Alert>
       <p>Nome extraído do documento: <strong>{nome}</strong></p><p>Correspondência cadastral: Não encontrada</p>
       <p>Pendência que não impede continuar. A associação é opcional para a demonstração.</p>
       <button disabled={busy} onClick={onAssociate}>Associar concessionária (opcional)</button></>
-      : <><Alert variant="info"><strong>Dados documentais disponíveis</strong></Alert>
-        <p>Nome extraído do documento: <strong>{nome}</strong></p>
-        <p>Concessionária: {String(extracao.evidencias_validacao_documental?.nome_concessionaria ?? '')}</p></>}
+      : <div className="validacao-info"><Alert variant="info"><strong>Dados documentais disponíveis</strong>
+        <p className="validacao-info-linha"><span>Nome extraído do documento: <strong>{nome}</strong></span>{concessionaria && <span>Concessionária: <strong>{concessionaria}</strong></span>}</p></Alert></div>}
     <DocumentaryAlerts extracao={{...extracao, pendencias: extracao.pendencias?.filter(p => p.tipo !== "CORRESPONDENCIA_CONCESSIONARIA")}} concessionaria={nome} confirmado />
-    {!extracao.bloqueia_calculo && <div className="actions"><button className="primary" disabled={busy} onClick={onCalculate}>Calcular fatura</button></div>}
+    {(footerStart || footerEnd || !extracao.bloqueia_calculo) && <div className="actions">{footerStart}{footerEnd ?? (!extracao.bloqueia_calculo && <button className="primary" disabled={busy} onClick={onCalculate}>Calcular fatura</button>)}</div>}
   </section>;
 }
 export function AssociarConcessionariaModal({nome, opcoes, selected, busy, error, onSelect, onClose, onConfirm}: {

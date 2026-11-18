@@ -1,17 +1,35 @@
-import { useCallback, useState } from 'react';
-import { api } from '../api';
-import { money, useResource } from '../components/ui';
-import { useAuth } from '../auth/AuthContext';
-export function ReportChart({ title, rows, unit, line = false }: {title: string; rows: {label: string; value: number}[]; unit: string; line?: boolean}) {
-  const max = Math.max(1, ...rows.map(r => r.value));
-  const width = Math.max(500, rows.length * 90);
-  const points = rows.map((r,i) => `${60 + i * (width-100)/Math.max(1,rows.length)},${180-r.value/max*150}`).join(' ');
-  return <section className="card report-chart"><h2>{title}</h2><p className="hint">{unit}</p>{!rows.length ? <p>Sem dados no período.</p> : <div className="table-wrap"><svg role="img" aria-label={title} viewBox={`0 0 ${width} 230`} style={{width:'100%', minWidth:320, height:260}}>{line && <polyline points={points} fill="none" stroke="#0057a3" strokeWidth="3" />}{rows.map((r,i) => {const x=60+i*(width-100)/Math.max(1,rows.length); const y=180-r.value/max*150; return <g key={r.label}><title>{`${r.label}: ${r.value.toLocaleString('pt-BR')} ${unit}`}</title>{line ? <circle cx={x} cy={y} r="5" fill="#0057a3"/> : <rect x={x-20} y={y} width="40" height={180-y} fill="#0057a3" rx="3"/>}<text x={x} y={y-8} textAnchor="middle" fontSize="11">{r.value.toLocaleString('pt-BR')}</text><text x={x} y="210" textAnchor="middle" fontSize="11">{r.label}</text></g>;})}</svg></div>}</section>;
-}
+import { Link } from 'react-router-dom';
+import { BarChart3, ChevronRight, Coins, Leaf } from 'lucide-react';
+import './relatorios.css';
+
 export function Relatorios() {
-  const {session} = useAuth();
-  const [prefix, setPrefix] = useState(''); const [tipo,setTipo]=useState(''); const [start,setStart]=useState(''); const [end,setEnd]=useState('');
-  const load = useCallback(() => {const p=new URLSearchParams(); if(prefix)p.set('id_prefixo',prefix); if(tipo)p.set('tipo',tipo); if(start)p.set('data_inicio',start); if(end)p.set('data_fim',end); return api.relatorios(p.toString());},[prefix,tipo,start,end]);
-  const r=useResource(load);
-  return <><div className="page-title"><h1>Relatórios</h1><p>Indicadores das faturas aprovadas pelo Checker. Valores calculados e consumo documental. O período filtra o mês de competência.</p></div><section className="card filters"><label>Prefixo<select aria-label="Prefixo" value={prefix} onChange={e=>setPrefix(e.target.value)}><option value="">Prefixo da sessão</option>{session?.prefixos.map(p=><option key={p.id_prefixo} value={p.id_prefixo}>{p.codigo_prefixo} — {p.nome}</option>)}</select></label><label>Tipo da conta<select aria-label="Tipo da conta" value={tipo} onChange={e=>setTipo(e.target.value)}><option value="">Ambos</option><option value="agua">Água</option><option value="energia">Energia</option></select></label><label>Início<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Fim<input type="date" min={start} value={end} onChange={e=>setEnd(e.target.value)}/></label></section>{r.loading && <p role="status">Carregando indicadores…</p>}{r.error && <p role="alert">{r.error}<button onClick={r.reload}>Tentar novamente</button></p>}{!r.loading && !r.error && r.data && <><div className="report-kpis">{[['Valor total no período',money(r.data.valor_total)],['Quantidade de faturas',r.data.quantidade],['Consumo de energia',`${Number(r.data.energia).toLocaleString('pt-BR')} kWh`],['Consumo de água',`${Number(r.data.agua).toLocaleString('pt-BR')} m³`]].map(([label,value])=><section className="card" key={label}><small>{label}</small><h2>{value}</h2></section>)}</div>{!r.data.quantidade && <p>Nenhuma fatura aprovada no período selecionado.</p>}<ReportChart title="Gasto mensal" unit="R$" rows={r.data.mensal.map(m=>({label:m.competencia,value:Number(m.valor)}))}/><div className="report-grid">{tipo !== 'agua' && <ReportChart title="Consumo mensal de energia" unit="kWh" line rows={r.data.mensal.map(m=>({label:m.competencia,value:Number(m.energia)}))}/ >}{tipo !== 'energia' && <ReportChart title="Consumo mensal de água" unit="m³" line rows={r.data.mensal.map(m=>({label:m.competencia,value:Number(m.agua)}))}/ >}</div><ReportChart title="Gasto por prefixo" unit="R$" rows={r.data.prefixos.map(p=>({label:p.prefixo,value:Number(p.valor)}))}/></>}</>;
+  return (
+    <>
+      {/* Mesmas classes do título de "Pagamento de faturas" (page-title + payment-title). */}
+      <div className="page-title payment-title">
+        <div>
+          <h1><BarChart3 className="rel-title-icon" aria-hidden="true" />Relatórios</h1>
+          <p>Acompanhe os gastos e o consumo de recursos da sua unidade.</p>
+        </div>
+      </div>
+
+      <div className="rel-cards">
+        <Link to="/relatorios/financeiros" className="rel-card rel-card--fin">
+          <span className="rel-card__body">
+            <Coins size={56} strokeWidth={1.6} aria-hidden="true" />
+            <span className="rel-card__title">Relatórios Financeiros<br />e Operacionais</span>
+          </span>
+          <span className="rel-card__arrow" aria-hidden="true"><ChevronRight size={28} /></span>
+        </Link>
+
+        <Link to="/relatorios/consumo" className="rel-card rel-card--con">
+          <span className="rel-card__body">
+            <Leaf size={56} strokeWidth={1.6} aria-hidden="true" />
+            <span className="rel-card__title">Relatórios de Consumo<br />e Sustentabilidade</span>
+          </span>
+          <span className="rel-card__arrow" aria-hidden="true"><ChevronRight size={28} /></span>
+        </Link>
+      </div>
+    </>
+  );
 }

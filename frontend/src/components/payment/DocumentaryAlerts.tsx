@@ -11,7 +11,11 @@ export function Alert({ variant, children }: { variant: "info" | "warning" | "re
 }
 export function DocumentaryAlerts({ extracao, concessionaria, confirmado = false }: { extracao: ExtracaoInteligente; concessionaria?: string; confirmado?: boolean }) {
   const pendencias = extracao.pendencias ?? [];
-  if (!pendencias.length) return <Alert variant={extracao.resultado_validacao_documental === "VALIDO" ? "info" : "review"}>{extracao.motivo_validacao_documental ?? documentaryMessages[extracao.resultado_validacao_documental ?? "EVIDENCIA_INSUFICIENTE"]}</Alert>;
+  if (!pendencias.length) {
+    const message = extracao.motivo_validacao_documental ?? documentaryMessages[extracao.resultado_validacao_documental ?? "EVIDENCIA_INSUFICIENTE"];
+    if (!message?.trim()) return null; // sem mensagem: não mostra caixa vazia
+    return <Alert variant={extracao.resultado_validacao_documental === "VALIDO" ? "info" : "review"}>{message}</Alert>;
+  }
   return <section aria-label="Pendências documentais"><h3>Pendências e alertas</h3>{pendencias.map((p, i) => {
     const blocking = p.bloqueia_envio_validacao || p.bloqueia_calculo;
     return <Alert variant={blocking ? "error" : "warning"} key={`${p.tipo}-${p.campo ?? i}`}>

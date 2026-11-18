@@ -1,0 +1,15 @@
+# Publicação da DEMONSTRAÇÃO ABERTA do front (sem backend, sem login, só dados fictícios).
+# Ver frontend/.env.demo e frontend/src/config/devBypass.ts.
+[build]
+  base = "frontend"
+  command = "npm run build:demo"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Rotas do React (ex.: /relatorios/consumo) caem no index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

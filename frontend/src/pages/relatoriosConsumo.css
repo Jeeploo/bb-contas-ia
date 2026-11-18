@@ -1,0 +1,92 @@
+/* Relatórios de Consumo e Sustentabilidade (/relatorios/consumo)
+   Botão "Filtrar", painel, card branco e tabela: components/relatorios/relatoriosBase.css.
+   Tipografia: classes/elementos globais de "Pagamento de faturas"; os tamanhos usados aqui
+   repetem tamanhos que já existem no sistema (indicado em cada regra). */
+
+.rc-leaf { color: #2e8b3e; }
+
+/* Link pequeno: mesmo tamanho dos rótulos (.resumo-campo-texto span); cor = link global (a). */
+.rc-back { display: inline-block; margin: -12px 0 20px; font-size: 12px; font-weight: 600; text-decoration: none; }
+.rc-back:hover { text-decoration: underline; }
+
+.rc-content { display: flex; flex-direction: column; gap: 24px; transition: opacity 150ms ease; }
+.rc-content.is-loading { opacity: 0.6; }
+.rc-status { color: var(--rf-muted); }
+.rc-erro { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; margin-bottom: 16px; color: #9b1c1c; }
+.rc-erro p { margin: 0; }
+
+/* ---------- Cards com foto */
+.rc-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+
+/* "button.rc-card" vence as regras globais de button (fundo, borda, hover). */
+.rc-cards button.rc-card {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px;
+  aspect-ratio: 16 / 9; width: 100%; margin: 0; padding: 16px 18px;
+  border: 0; border-radius: 16px; text-align: left; color: #fff;
+  background-color: #0a3a8c; background-repeat: no-repeat; background-size: cover; background-position: right center;
+  box-shadow: 0 2px 8px rgba(10, 30, 70, 0.08);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.rc-cards button.rc-card--agua { background-image: url('/img/consumo/agua.png'); background-color: #0b4f9c; }
+.rc-cards button.rc-card--energia { background-image: url('/img/consumo/luz.png'); background-color: #1d2a4d; }
+.rc-cards button.rc-card--papel { background-image: url('/img/consumo/papel.png'); background-color: #43566e; }
+.rc-cards button.rc-card--residuos { background-image: url('/img/consumo/lixo.png'); background-color: #1f6b2e; }
+
+/* Escurece o lado esquerdo, onde fica o texto. */
+.rc-cards button.rc-card::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.30) 0%, rgba(0, 0, 0, 0) 65%);
+}
+.rc-cards button.rc-card:hover { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(10, 30, 70, 0.22); }
+.rc-cards button.rc-card.is-selected { box-shadow: 0 0 0 3px var(--rf-yellow), 0 2px 8px rgba(10, 30, 70, 0.08); }
+.rc-cards button.rc-card.is-selected:hover { box-shadow: 0 0 0 3px var(--rf-yellow), 0 12px 26px rgba(10, 30, 70, 0.22); }
+
+.rc-card__head { display: flex; align-items: center; gap: 10px; line-height: 1.25; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.rc-card__head svg { flex: none; }
+.rc-card__valor { display: flex; align-items: center; gap: 10px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+/* Valor grande: mesmo tamanho do título da página (.page-title h1). */
+.rc-card__valor strong { font-size: 26px; line-height: 1.2; font-weight: 700; }
+.rc-card__valor span:last-child { font-weight: 400; }
+.rc-card__sep { width: 1px; align-self: stretch; margin: 4px 0; background: rgba(255, 255, 255, 0.75); }
+
+/* ---------- Tabela */
+.rc-tabela { padding: 4px 0 0; overflow: hidden; }
+.rc-tabela__scroll { margin-top: 0; }
+.rc-table th.is-num, .rc-table td.is-num { text-align: right; }
+.rc-table th, .rc-table td { text-align: left; }
+.rc-table td.is-num { text-align: right; }
+
+.rc-sort {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0;
+  border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer;
+}
+.rc-sort:hover { background: none; text-decoration: underline; }
+.rc-sort svg { opacity: 0.4; }
+.rc-sort.is-active svg { opacity: 1; }
+.rc-table thead th.is-num .rc-sort { flex-direction: row; }
+
+/* Prefixo fixo à esquerda na rolagem horizontal. */
+.rc-table thead th:first-child, .rc-table tbody th:first-child { position: sticky; left: 0; z-index: 1; }
+.rc-table thead th:first-child { background: #f6f8fc; }
+.rc-table tbody th:first-child { background: #fff; box-shadow: 1px 0 0 #edf1f7; }
+.rc-table tbody tr:hover th:first-child { background: #f8fafd; }
+
+.rc-paginacao { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 16px; color: var(--rf-muted); }
+.rc-paginacao__nav { display: flex; align-items: center; gap: 10px; }
+.rc-paginacao__nav button { display: grid; place-items: center; padding: 6px 10px; }
+
+.rc-vazio { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 56px 24px; text-align: center; color: #98a4b5; }
+.rc-vazio p { margin: 0; color: var(--rf-muted); }
+
+/* ---------- Responsivo */
+@media (max-width: 1200px) {
+  .rc-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .rc-cards { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rc-cards button.rc-card, .rc-content { transition: none; }
+  .rc-cards button.rc-card:hover { transform: none; }
+}

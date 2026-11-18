@@ -1,4 +1,6 @@
 import { apiBase } from './config';
+import { isDevBypass } from '../config/devBypass';
+import { devMockResponse } from '../auth/devBypass';
 const base = apiBase(import.meta.env.VITE_API_URL);
 export class ApiError extends Error {
     constructor(public status: number, message: string) { super(message); }
@@ -13,6 +15,8 @@ function detailMessage(value: unknown): string {
     return '';
 }
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    if (isDevBypass())
+        return devMockResponse(path, (options.method ?? 'GET').toUpperCase()) as T;
     const headers = new Headers(options.headers);
     if (options.body && !(options.body instanceof FormData))
         headers.set('Content-Type', 'application/json');

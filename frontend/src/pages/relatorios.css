@@ -1,0 +1,126 @@
+/* Tela Relatórios (hub) e páginas de destino.
+   Tipografia: herdada das classes globais de "Pagamento de faturas"
+   (.page-title / .payment-title, .resumo-heading, .resumo-campo-texto). */
+
+/* Ícone dentro do <h1>: escala com o tamanho do título. */
+.rel-title-icon {
+  width: 1.1em;
+  height: 1.1em;
+  margin-right: 0.35em;
+  vertical-align: -0.18em;
+}
+
+.rel-back {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+.rel-back:hover { text-decoration: underline; }
+.rel-back:focus-visible { outline: 3px solid #ffe600; outline-offset: 3px; border-radius: 4px; }
+
+.rel-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  width: 100%;
+}
+
+.rel-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  aspect-ratio: 17 / 10;
+  padding: 0 9% 0 7%;
+  border-radius: 16px;
+  overflow: hidden;
+  color: #fff;
+  text-decoration: none;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: right bottom;
+  box-shadow: 0 8px 22px rgba(10, 30, 70, 0.16);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+  isolation: isolate;
+}
+/* Cor sólida de reserva caso a foto não carregue. */
+.rel-card--fin { background-color: #0a3a8c; background-image: url('/img/relatorio-financeiro.png'); }
+.rel-card--con { background-color: #0f5e2e; background-image: url('/img/relatorio-consumo.png'); }
+
+/* Escurece só o lado esquerdo, onde fica o texto. */
+.rel-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0) 60%);
+  pointer-events: none;
+}
+
+.rel-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(10, 30, 70, 0.26);
+}
+.rel-card:focus-visible {
+  outline: 4px solid #ffe600;
+  outline-offset: 4px;
+}
+
+.rel-card__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 60%;
+}
+/* Mesma família e peso dos títulos do sistema; um pouco maior por estar sobre a foto. */
+.rel-card__title {
+  font-family: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.rel-card__arrow {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  transition: transform 200ms ease, background 200ms ease;
+}
+.rel-card:hover .rel-card__arrow,
+.rel-card:focus-visible .rel-card__arrow {
+  transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 1200px) {
+  .rel-card__title { font-size: 22px; }
+  .rel-card__body { gap: 14px; }
+  .rel-card__body svg { width: 44px; height: 44px; }
+}
+@media (max-width: 900px) {
+  .rel-cards { grid-template-columns: 1fr; gap: 24px; }
+  .rel-card__title { font-size: 26px; }
+}
+@media (max-width: 520px) {
+  .rel-card__title { font-size: 20px; }
+  .rel-card__body svg { width: 36px; height: 36px; }
+  .rel-card__arrow { width: 40px; height: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rel-card, .rel-card__arrow { transition: none; }
+  .rel-card:hover { transform: none; }
+}

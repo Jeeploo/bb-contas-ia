@@ -1,0 +1,77 @@
+/* Base compartilhada das páginas de Relatórios (Financeiros • Consumo):
+   botão "Filtrar", painel de filtros, card branco e tabela.
+   Tipografia NÃO é definida aqui: vem das classes/elementos globais usados em "Pagamento de faturas"
+   (.page-title, .resumo-heading, .resumo-campo-texto, label/select/input/button/.primary). */
+.rf-page { --rf-ink: #0a3a8c; --rf-muted: #6a7a8f; --rf-line: #e3e9f2; --rf-soft: #eaf1fd; --rf-yellow: #ffdf00; }
+
+.rf-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Botão "Filtrar" (classe global .primary) */
+.rf-filtrar { display: inline-flex; align-items: center; gap: 8px; }
+.rf-filtrar__chev { transition: transform 200ms ease; }
+.rf-filtrar[aria-expanded="true"] .rf-filtrar__chev { transform: rotate(180deg); }
+.rf-filtrar__badge {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 7px;
+  border-radius: 999px; background: var(--rf-yellow); color: #102b52;
+}
+
+/* ---------- Painel de filtros (abre empurrando o conteúdo) */
+.rf-panel-wrap {
+  display: grid; grid-template-rows: 0fr; opacity: 0; margin-bottom: 0;
+  transition: grid-template-rows 200ms ease, opacity 200ms ease, margin-bottom 200ms ease;
+}
+.rf-panel-wrap.is-open { grid-template-rows: 1fr; opacity: 1; margin-bottom: 24px; }
+.rf-panel-clip { min-height: 0; overflow: hidden; }
+/* Depois de aberto, deixa as listas de busca passarem da borda do painel. */
+.rf-panel-wrap.is-settled .rf-panel-clip { overflow: visible; }
+
+.rf-panel { padding: 8px 24px 20px; border-top: 3px solid var(--rf-yellow); }
+.rf-panel__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 20px; align-items: start; }
+.rf-field { margin: 14px 0 0; min-width: 0; }
+.rf-field--periodo { grid-column: span 2; }
+.rf-field--periodo legend { padding: 0; font-weight: 600; }
+.rf-field__erro { color: #b42318; }
+
+.rf-seg { display: inline-flex; margin: 6px 0 0; border: 1px solid #ced7e2; border-radius: 7px; overflow: hidden; }
+.rf-seg button { padding: 6px 14px; border: 0; border-radius: 0; background: #fff; }
+.rf-seg button + button { border-left: 1px solid #ced7e2; }
+.rf-seg button[aria-pressed="true"] { background: var(--rf-soft); color: var(--rf-ink); }
+.rf-range { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.rf-search { position: relative; }
+.rf-search__list {
+  position: absolute; z-index: 40; left: 0; right: 0; top: 100%; margin: 0; padding: 6px; list-style: none;
+  max-height: 260px; overflow-y: auto; font-weight: 400;
+  background: #fff; border: 1px solid var(--rf-line); border-radius: 10px; box-shadow: 0 12px 28px rgba(10, 30, 70, 0.16);
+}
+.rf-search__list li { padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.rf-search__list li.is-active { background: #f2f6fc; }
+.rf-search__list li.is-selected { color: var(--rf-ink); font-weight: 600; }
+.rf-search__empty { color: var(--rf-muted); cursor: default; }
+
+.rf-panel__actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+
+/* ---------- Card branco */
+.rf-card { background: #fff; border: 1px solid #edf1f6; border-radius: 16px; box-shadow: 0 2px 8px rgba(10, 30, 70, 0.04); }
+
+/* ---------- Tabelas */
+.rf-table-wrap { margin-top: 16px; overflow-x: auto; }
+.rf-table { width: 100%; border-collapse: collapse; }
+.rf-table th, .rf-table td { padding: 10px 12px; border-bottom: 1px solid #edf1f7; text-align: right; white-space: nowrap; }
+.rf-table th:first-child { text-align: left; }
+.rf-table thead th { background: #f6f8fc; }
+.rf-table tbody tr:hover { background: #f8fafd; }
+
+/* ---------- Responsivo */
+@media (max-width: 1100px) {
+  .rf-panel__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .rf-panel__grid { grid-template-columns: 1fr; }
+  .rf-field--periodo { grid-column: auto; }
+  .rf-panel { padding: 4px 16px 16px; }
+  .rf-panel__actions button { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rf-panel-wrap, .rf-filtrar__chev { transition: none; }
+}

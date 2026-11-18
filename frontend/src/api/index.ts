@@ -1,14 +1,16 @@
 import type { JornadaPersistida, ResultadoCalculo } from '../types';
 import { listAll, request } from './client';
+import { isDevBypass } from '../config/devBypass';
+import { devJourneyMock } from './devJourneyMock';
 import type { ItemRegra, PerfilProcessamento, ItemExtraido, RespostaCalculoContextual, Localidade, RegraCalculo, ContaConsumo, Documento, ExtracaoInteligente, DadoExtraido, Calculo, OrdemPagamento, ItemPagamento, Aprovacao, Usuario, Alcada, Prefixo, Concessionaria, SistemaPagamento, ProcessamentoDocumento } from '../types';
 export const api = {
     faturas: () => request<FaturaAprovada[]>('/faturas'),
     relatorios: (params: string) => request<Relatorio>('/relatorios/resumo?' + params),
-    confirmarJornada: (id: number, valores: Record<string, string>, enviar: boolean) => request<JornadaPersistida>(`/documentos/${id}/confirmar-jornada`, {method:'POST', body:JSON.stringify({valores, enviar})}),
-    jornadaDocumento: (id: number) => request<JornadaPersistida>(`/documentos/${id}/jornada`),
-    retomarJornada: () => request<JornadaPersistida>('/documentos/jornada/atual'),
-    novaFatura: (id: number) => request<void>(`/documentos/${id}/nova-fatura`, {method:'POST'}),
-    calcularDocumento: (id: number) => request<ResultadoCalculo>(`/documentos/${id}/calcular-demo`, {method:'POST'}),
+    confirmarJornada: (id: number, valores: Record<string, string>, enviar: boolean) => isDevBypass() ? devJourneyMock.confirmarJornada(id, valores, enviar) : request<JornadaPersistida>(`/documentos/${id}/confirmar-jornada`, {method:'POST', body:JSON.stringify({valores, enviar})}),
+    jornadaDocumento: (id: number) => isDevBypass() ? devJourneyMock.jornadaDocumento(id) : request<JornadaPersistida>(`/documentos/${id}/jornada`),
+    retomarJornada: () => isDevBypass() ? devJourneyMock.retomarJornada() : request<JornadaPersistida>('/documentos/jornada/atual'),
+    novaFatura: (id: number) => isDevBypass() ? devJourneyMock.novaFatura() : request<void>(`/documentos/${id}/nova-fatura`, {method:'POST'}),
+    calcularDocumento: (id: number) => isDevBypass() ? devJourneyMock.calcularDocumento(id) : request<ResultadoCalculo>(`/documentos/${id}/calcular-demo`, {method:'POST'}),
     filaChecker: () => request<JornadaPersistida[]>('/documentos/jornada/checker'),
     decidirDocumento: (id: number, decisao: 'aprovado' | 'rejeitado', observacao: string, motivo = "") => request<JornadaPersistida>(`/documentos/${id}/decisao-checker`, {method:'POST', body:JSON.stringify({decisao, observacao, motivo})}),
     concessionariasElegiveis: () => request<{id_concessionaria: number; nome: string; ativo: boolean}[]>('/concessionarias/elegiveis/associacao'),
@@ -17,10 +19,11 @@ export const api = {
     enviarValidacao: (id: number) => request<ExtracaoInteligente>(`/extracoes_inteligentes/${id}/enviar-validacao`, { method: 'POST' }),
     prefixosUsuario: (id: number) => request<{ vinculos: { id_prefixo: number; ativo: boolean }[] }>(`/usuarios/${id}/prefixos`),
     uploadInicial: (file: File) => {
+        if (isDevBypass()) return devJourneyMock.uploadInicial(file);
         const body = new FormData(); body.append('file', file);
         return request<Documento>('/documentos/upload', { method: 'POST', body });
     },
-    processarInteligente: (id: number) => request<ProcessamentoDocumento>(`/documentos/${id}/processar-inteligente`, { method: 'POST' }),
+    processarInteligente: (id: number) => isDevBypass() ? devJourneyMock.processarInteligente(id) : request<ProcessamentoDocumento>(`/documentos/${id}/processar-inteligente`, { method: 'POST' }),
     perfis: () => listAll<PerfilProcessamento>('perfis_processamento'),
     itensExtraidos: () => listAll<ItemExtraido>('itens_extraidos'),
     localidades: () => listAll<Localidade>('localidades'),
@@ -38,5 +41,5 @@ export const api = {
     decidir: (id_ordem: number, decisao: 'aprovado' | 'rejeitado', observacao: string) => request<Aprovacao>('/aprovacoes', { method: 'POST', body: JSON.stringify({ id_ordem, decisao, observacao: observacao || null, data_hora: new Date().toISOString() }) }),
 };
 
-export interface FaturaAprovada { id_fatura: number; tipo: string; competencia: string; prefixo: string; valor: string; solicitado_por: string; confirmado_por: string; data_confirmacao: string }
+export interface FaturaAprovada { id_fatura: number; tipo: string; competencia: string; prefixo: string; valor: string; solicitado_por: string; confirmado_por: string; data_confirmacao: string; /** Opcional: o backend atual não envia (só lista confirmadas). Ver getStatusFatura. */ status?: string }
 export interface Relatorio { valor_total: string; quantidade: number; energia: string; agua: string; mensal: {competencia: string; valor: string; energia: string; agua: string}[]; prefixos: {prefixo: string; valor: string}[] }

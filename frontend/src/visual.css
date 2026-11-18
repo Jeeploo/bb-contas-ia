@@ -242,6 +242,55 @@ main { width: 100%; max-width: 1360px; padding: 26px 38px 32px; }
   .access-message { padding-top: 50px; }
   .access-card { padding: 40px; }
 }
+/* Login desktop (≥1280px): texto 4–29%, funcionária ~29–59% (centro ~44%), card 62–91%. */
+@media (min-width: 1280px) {
+  .access {
+    overflow: hidden;
+    align-items: start;
+    gap: 0;
+    padding: 32px 9% 32px 4%;
+    /* card = 29% da tela; área de conteúdo = 87% da tela → 29 / 87 */
+    grid-template-columns: minmax(0, 1fr) 33.333%;
+  }
+  /* Foto deslocada para a direita; a borda esquerda se dissolve sob o degradê do texto. */
+  /* Caixa com a proporção da foto (min. 86% da largura); a funcionária está a ~29,6%
+     da largura da foto, então left 44% + translateX(-29,6%) a centraliza em ~44% da tela. */
+  .login-hero {
+    right: auto;
+    left: 44%;
+    width: auto;
+    min-width: 86%;
+    aspect-ratio: 1672 / 941;
+    transform: translateX(-29.6%);
+    object-position: 0% 44%;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 10%);
+  }
+  .access-message {
+    position: absolute;
+    top: 18%;
+    bottom: 17%;
+    left: 7%;
+    width: 22%;
+    max-width: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .access-intro .access-message h1 { font-size: clamp(44px, 4vw, 72px); line-height: 1.05; }
+  .access-intro .access-message p { max-width: none; font-size: clamp(18px, 1.05vw, 20px); }
+  /* Card centralizado verticalmente abaixo do header. */
+  .access-form { align-self: center; }
+}
+/* Telas baixas: espaçamentos internos do card reduzidos para o botão "Entrar" caber. */
+@media (min-width: 1280px) and (max-height: 820px) {
+  .access-card { padding: 22px 34px; }
+  .access-card .demo-badge { margin-bottom: 10px; }
+  .access-card > p { margin-bottom: 16px; }
+  .access-card label { margin: 13px 0; }
+  .access-card .hint { margin: 16px 0 14px; }
+}
 @media (max-width: 1100px) {
   .sidebar { width: 184px; padding: 22px 12px; }
   .sidebar .brand strong { font-size: 16px; }
@@ -319,3 +368,86 @@ main { width: 100%; max-width: 1360px; padding: 26px 38px 32px; }
 .summary-card .invoice-fields .barcode-field {grid-column:span 2}
 @media(max-width:1000px){.summary-card .invoice-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.summary-card .invoice-fields{grid-template-columns:1fr}.summary-card .invoice-fields .barcode-field{grid-column:auto}}
+/* Pagamento de faturas: título com "Nova fatura" à direita e conteúdo em largura total. */
+.payment-title { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+main:has(.payment-title) { max-width: none; }
+@media (min-width: 1101px) { main:has(.payment-title) { padding-left: 28px; padding-right: 28px; } }
+main:has(.payment-title) .stepper { max-width: none; margin-left: 0; margin-right: 0; }
+main:has(.payment-title) .upload-card { max-width: none; margin-left: 0; margin-right: 0; }
+/* Passo 2 — Resumo da fatura (cards com ícone, mapa da região e rodapé). */
+.resumo-card .resumo-heading, .validacao-card .resumo-heading { max-width: none; margin: 0 0 20px; align-items: center; }
+.resumo-heading h2 { color: #003da5; font-weight: 700; font-size: 17px; margin: 0 0 3px; }
+.resumo-heading p { color: #6a7a8f; font-size: 12px; margin: 0; }
+.resumo-corpo { display: grid; grid-template-columns: minmax(0, 65fr) minmax(0, 35fr); gap: 28px; align-items: stretch; }
+.resumo-esquerda { min-width: 0; }
+.resumo-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.resumo-campo { display: flex; align-items: center; gap: 12px; min-width: 0; background: #fff; border: 1px solid #dfe5ee; border-radius: 8px; padding: 10px 12px; }
+.resumo-campo-largo { grid-column: 1 / -1; }
+.resumo-campo-icone { width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center; border-radius: 8px; background: #E8F0FE; color: #003da5; }
+.resumo-campo-texto { flex: 1; min-width: 0; }
+.resumo-campo-texto span { display: block; font-size: 12px; color: #6a7a8f; }
+.resumo-campo-texto strong { display: block; margin-top: 2px; color: #183967; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+.resumo-campo-largo .resumo-campo-texto strong { white-space: nowrap; overflow-x: auto; overflow-wrap: normal; }
+button.resumo-campo-editar { width: 28px; height: 28px; padding: 0; flex-shrink: 0; display: grid; place-items: center; border-radius: 6px; border: 1px solid #e1e5eb; background: #f1f3f6; color: #8a96a8; }
+button.resumo-campo-editar:hover { background: #e6eaf0; color: #5e6c80; }
+.mapa-regiao { margin: 0; text-align: center; }
+.mapa-regiao svg { width: 100%; max-width: 260px; height: auto; display: block; margin: 0 auto; }
+.mapa-regiao figcaption { margin-top: 8px; color: #A67C00; font-weight: 700; font-size: 13px; line-height: 1.4; }
+.mapa-regiao figcaption strong, .mapa-regiao figcaption span { display: block; }
+.resumo-extras { margin-top: 20px; }
+.resumo-card .actions button { display: inline-flex; align-items: center; gap: 6px; }
+button.resumo-btn-secundario { background: #fff; border-color: #003da5; color: #003da5; }
+@media (max-width: 1100px) { .resumo-corpo { grid-template-columns: 1fr; } .resumo-corpo > .doc-viewer { height: 500px; } }
+@media (max-width: 560px) { .resumo-campos { grid-template-columns: 1fr; } }
+/* Stepper: trecho já percorrido da linha em azul (--stepper-progress vem do PaymentStepper). */
+.stepper::before { background: linear-gradient(to right, #003da5 calc(var(--stepper-progress, 0) * 100%), #dce2eb 0); }
+/* Visualizador do documento (coluna direita do passo 2). */
+.doc-viewer { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 360px; contain: size; background: #F3F5F9; border: 1px solid #dfe5ee; border-radius: 8px; padding: 10px; }
+.doc-viewer-zoombar { align-self: center; display: inline-flex; align-items: stretch; flex-shrink: 0; border: 1px solid #d6dde7; border-radius: 999px; overflow: hidden; background: #fff; }
+.doc-viewer-zoombar button { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 0; background: #fff; color: #304b70; }
+.doc-viewer-zoombar button:hover:not(:disabled) { background: #eef2f8; }
+.doc-viewer-zoombar span { width: 56px; display: grid; place-items: center; border-left: 1px solid #d6dde7; border-right: 1px solid #d6dde7; font-size: 12px; font-weight: 600; color: #304b70; font-variant-numeric: tabular-nums; }
+.doc-viewer-scroll { flex: 1 1 0; min-height: 0; overflow: auto; background: #E9ECF1; border-radius: 6px; }
+.doc-viewer-scroll.is-dragging, .doc-viewer-scroll.is-dragging * { user-select: none; cursor: grabbing !important; }
+.doc-viewer-stack { position: relative; display: flex; flex-direction: column; align-items: center; width: max-content; min-width: 100%; box-sizing: border-box; }
+.doc-viewer-sheet { position: relative; flex-shrink: 0; overflow: hidden; background: #fff; box-shadow: 0 1px 3px rgba(16, 40, 80, 0.12), 0 4px 14px rgba(16, 40, 80, 0.10); }
+.doc-viewer-sheet img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.doc-viewer-sheet object { position: absolute; display: block; border: 0; }
+.doc-viewer-grab { position: absolute; inset: 0; user-select: none; }
+.doc-viewer-grab.is-pannable { cursor: grab; }
+.doc-viewer-empty { margin: auto; padding: 24px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #6a7a8f; font-size: 12px; }
+.doc-viewer-footer { display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; min-width: 0; }
+.doc-viewer-name { display: flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; font-size: 12px; color: #6a7a8f; }
+.doc-viewer-name svg { flex-shrink: 0; }
+.doc-viewer-name > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.button.doc-viewer-open { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 7px 14px; }
+/* Navegação entre etapas: Voltar, números clicáveis do stepper e aviso de fatura processada. */
+button.journey-back { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; background: #fff; border-color: #d4dce5; color: #183967; }
+.stepper li.clickable { cursor: pointer; }
+.stepper li.clickable > span { transition: box-shadow 0.15s ease, filter 0.15s ease; }
+.stepper li.clickable:hover > span, .stepper li.clickable:focus-visible > span { box-shadow: 0 0 0 4px #cfe0fb; filter: brightness(0.92); }
+.stepper li.clickable:focus-visible { outline: none; }
+.journey-locked { margin: 0 0 14px; padding: 8px 12px; border-radius: 6px; background: #eef3fb; color: #304b70; font-size: 12px; }
+.upload-preview > .doc-viewer { height: 420px; margin-top: 12px; }
+/* Etapa 3 — Validação e cálculo: resumo | documento | mapa. */
+.validation-card.validacao-card { max-width: none; margin: 0 0 20px; }
+.validacao-corpo { display: grid; grid-template-columns: minmax(0, 30fr) minmax(0, 40fr) minmax(0, 30fr); gap: 32px; align-items: start; }
+.validacao-corpo > .doc-viewer { height: 480px; }
+.validacao-corpo > .mapa-regiao { align-self: center; }
+.resumo-lista h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: #003da5; font-size: 15px; font-weight: 700; }
+.resumo-lista dl { margin: 0; }
+.resumo-lista dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid #e6eaf0; }
+.resumo-lista dl > div:last-child { border-bottom: 0; }
+.resumo-lista dt { display: flex; align-items: center; gap: 10px; color: #6a7a8f; font-size: 13px; white-space: nowrap; }
+.resumo-lista-icone { display: inline-grid; color: #003da5; }
+.resumo-lista dd { margin: 0; min-width: 0; color: #183967; font-weight: 700; font-size: 13px; text-align: right; overflow-wrap: anywhere; }
+.validacao-info .documentary-alert { padding: 10px 14px; margin: 20px 0 0; align-items: center; }
+.validacao-info .documentary-alert > svg { margin-top: 0; }
+.validacao-info-linha { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 4px 0 0 !important; font-size: 13px; }
+@media (max-width: 1200px) {
+  .validacao-corpo { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+  .validacao-corpo > .mapa-regiao { grid-column: 1 / -1; }
+}
+@media (max-width: 800px) {
+  .validacao-corpo { grid-template-columns: 1fr; }
+}

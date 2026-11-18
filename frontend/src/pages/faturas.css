@@ -1,0 +1,24 @@
+/* Tela Faturas: selos de status e coluna Status fixa na rolagem horizontal.
+   Card, tabela, campo e tipografia vêm das classes globais (.card, .table-wrap, label/input). */
+
+/* Selo só com ícone: círculo colorido do mesmo tamanho para os 3 status. */
+.status-fatura {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+.status-fatura svg { flex: none; }
+.status-fatura--em_processamento { background: #fff4cc; color: #8a5a00; }
+.status-fatura--validada { background: #e3f6e8; color: #1e7b34; }
+.status-fatura--revisao_necessaria { background: #fde4e4; color: #c62828; }
+.status-fatura--desconhecido { background: #eef1f5; color: #5e6c80; }
+
+/* Status fixo à esquerda quando a tabela rola na horizontal. */
+.faturas-table th:first-child,
+.faturas-table td:first-child { position: sticky; left: 0; z-index: 1; }
+.faturas-table th:first-child { background: #f4f6fa; }
+.faturas-table td:first-child { background: #fff; box-shadow: 1px 0 0 #eef1f5; }
+.faturas-table tbody tr:hover td:first-child { background: #fafcff; }
+.faturas-table th, .faturas-table td { white-space: nowrap; }

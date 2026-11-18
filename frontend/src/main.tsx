@@ -11,6 +11,8 @@ import { InvoiceHistory } from "./pages/InvoiceHistory";
 import "./styles.css";
 import "./visual.css";
 import { Relatorios } from "./pages/Relatorios";
+import { RelatoriosFinanceiros } from "./pages/RelatoriosFinanceiros";
+import { RelatoriosConsumo } from "./pages/RelatoriosConsumo";
 function App() {
   const { session, loading } = useAuth();
   if (loading) return <p role="status">Conferindo sessão…</p>;
@@ -26,6 +28,8 @@ function App() {
           <Route path="aprovacoes" element={<Aprovacoes />} />
           <Route path="faturas" element={<InvoiceHistory />} />
           <Route path="relatorios" element={<Relatorios />} />
+          <Route path="relatorios/financeiros" element={<RelatoriosFinanceiros />} />
+          <Route path="relatorios/consumo" element={<RelatoriosConsumo />} />
         </Route>
         <Route
           path="*"

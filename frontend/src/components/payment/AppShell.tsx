@@ -61,7 +61,7 @@ export function Topbar() {
         <span className="header-icon" role="img" aria-label="Configurações demonstrativas" title="Configurações demonstrativas"><Settings size={22} /></span>
         <div className="profile">
           <img className="avatar" src="/assets/avatar-demo.png" alt="Perfil DEMO" />
-          <div className="profile-details"><strong>{session?.usuario.nome}</strong><small>{session?.usuario.funcao}</small><small>{prefix ? `${prefix.codigo_prefixo} — ${prefix.nome}` : "Selecione uma unidade"}</small></div>
+          <div className="profile-details"><strong>{session?.usuario.nome}</strong><small>{session?.usuario.funcao}</small><small>{prefix ? `Prefixo ${prefix.codigo_prefixo}` : "Selecione uma unidade"}</small></div>
           <ChevronDown className="profile-chevron" size={15} aria-hidden="true" />
         </div>
         <button onClick={() => void signOut()}>Sair</button>

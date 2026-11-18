@@ -1,6 +1,6 @@
 import { apiBase } from "../../api/config";
 import { FileText } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { DadoExtraido, ItemExtraido, ResultadoCalculo as Calculo } from "../../types";
 import { formatCompetenciaDisplay } from "../../utils/competencia";
@@ -134,7 +134,9 @@ export function EditInvoiceModal({
   error,
   onClose,
   onSave,
+  focusCampos,
 }: {
+  focusCampos?: string[];
   dados: DadoExtraido[];
   itens: ItemExtraido[];
   busy: boolean;
@@ -155,7 +157,11 @@ export function EditInvoiceModal({
     ]),
   );
   const ref = (element: HTMLDialogElement | null) => {
-    if (element && !element.open) element.showModal();
+    if (element && !element.open) {
+      element.showModal();
+      // showModal() foca o primeiro campo; devolve o foco ao campo do lápis clicado.
+      element.querySelector<HTMLInputElement>("[data-focus-target=true]")?.focus();
+    }
   };
   return (
     <dialog
@@ -184,7 +190,7 @@ export function EditInvoiceModal({
                 d.campo_identificado.replaceAll("_", " ")}
               <input
                 aria-label={labels[d.campo_identificado] ?? d.campo_identificado.replaceAll("_", " ")}
-                autoFocus={d === dados[0]}
+                data-focus-target={d === (dados.find(x => focusCampos?.includes(x.campo_identificado)) ?? dados[0])}
                 type={
                   d.campo_identificado === "data_vencimento"
                     ? "date"
@@ -253,11 +259,13 @@ export function ConfirmationCard({
   fields,
   calculo,
   onReset,
+  footerStart,
 }: {
   situacao?: string;
   fields: SummaryField[];
   calculo: Calculo;
   onReset: () => void;
+  footerStart?: ReactNode;
 }) {
   return (
     <section className="card confirmation">
@@ -276,9 +284,16 @@ export function ConfirmationCard({
         )]}
       />
       <CalculationSummary calculo={calculo} />
-      <button className="primary" onClick={onReset}>
-        Nova fatura
-      </button>
+      {footerStart ? (
+        <div className="actions">
+          {footerStart}
+          <button className="primary" onClick={onReset}>Nova fatura</button>
+        </div>
+      ) : (
+        <button className="primary" onClick={onReset}>
+          Nova fatura
+        </button>
+      )}
     </section>
   );
 }

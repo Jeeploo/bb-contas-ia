@@ -1,0 +1,56 @@
+/* Relatórios Financeiros e Operacionais (/relatorios/financeiros)
+   Botão "Filtrar", painel, card branco e tabela: components/relatorios/relatoriosBase.css.
+   Tipografia: classes globais de "Pagamento de faturas" (.page-title, .resumo-heading, .resumo-campo-texto).
+   Este arquivo cuida de layout, cores de fundo e estados desta página. */
+
+.rf-content { display: flex; flex-direction: column; gap: 24px; transition: opacity 150ms ease; }
+.rf-content.is-loading { opacity: 0.6; }
+.rf-status { color: var(--rf-muted); }
+.rf-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; margin-bottom: 16px; border-color: #f2c4c4; color: #9b1c1c; }
+.rf-error p { margin: 0; }
+
+/* ---------- Indicadores */
+.rf-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.rf-kpi { display: flex; align-items: center; gap: 16px; padding: 20px; }
+.rf-kpi.is-muted { opacity: 0.55; }
+.rf-kpi__icon { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; }
+.rf-kpi__icon.tone-blue { background: #e6eefb; color: var(--rf-ink); }
+.rf-kpi__icon.tone-yellow { background: #fff6c2; color: #c99400; }
+.rf-kpi__body { display: flex; flex-direction: column; gap: 2px; }
+/* Valor em destaque: mesmo tamanho de título de seção (.resumo-heading h2), sem criar tamanho novo. */
+.rf-kpi .resumo-campo-texto strong { font-size: 17px; color: var(--rf-ink); }
+.rf-kpi__badge { display: inline-flex !important; align-items: center; gap: 3px; align-self: flex-start; margin-top: 6px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+.rf-kpi__badge.is-good { background: #e3f6e8; color: #17723a; }
+.rf-kpi__badge.is-bad { background: #fde7e7; color: #b42318; }
+.rf-kpi__badge.is-neutral { background: #eef1f6; color: var(--rf-muted); font-weight: 400; }
+
+/* ---------- Gráficos */
+.rf-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+.rf-chart { padding: 20px 22px; min-width: 0; }
+.rf-chart__head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 12px; }
+.rf-chart__head h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.rf-chart__head p { margin: 0; }
+.rf-chart__plot { width: 100%; min-width: 0; }
+.rf-legend { display: flex; gap: 16px; margin: 0; padding: 0; list-style: none; }
+.rf-legend li { display: flex; align-items: center; gap: 6px; }
+.rf-legend i, .rf-tip i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.rf-empty { color: var(--rf-muted); }
+
+.rf-tip { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: #fff; border: 1px solid var(--rf-line); border-radius: 10px; box-shadow: 0 8px 20px rgba(10, 30, 70, 0.14); }
+.rf-tip span { display: flex; align-items: center; gap: 6px; }
+.rf-tip__total { margin-top: 2px; padding-top: 4px; border-top: 1px solid var(--rf-line); font-weight: 700; }
+
+/* ---------- Em construção */
+.rf-wip { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 24px; text-align: center; color: var(--rf-ink); }
+
+/* ---------- Responsivo */
+@media (max-width: 1100px) {
+  .rf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rf-charts { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .rf-kpis { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rf-content { transition: none; }
+}
